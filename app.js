@@ -56,6 +56,99 @@ const APP_NAME = "New Hope Band";
     },
   };
 
+  // ---- Supabase: global song catalog shared by the whole team ----
+  // The anon key is meant to be public; writes are protected by login + RLS.
+  const SB_URL = "https://rryafqahqkgnwfxpvnbt.supabase.co";
+  const SB_KEY =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyeWFmcWFocWtnbndmeHB2bmJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5Mzk2NzMsImV4cCI6MjA5NjUxNTY3M30.HDgmG4mz35S3t_Kq0b1UbdLqlbQcsNyTByrJCG65Z2w";
+  const sbOn = () => !!SB_URL && !!SB_KEY;
+  const sbToken = () => store.get("sb_token", "");
+  function sbHeaders(extra) {
+    return Object.assign(
+      { apikey: SB_KEY, "Content-Type": "application/json" },
+      extra || {},
+    );
+  }
+  function getGlobalCache() {
+    try {
+      const a = JSON.parse(store.get("globalsongs", "[]"));
+      return Array.isArray(a) ? a : [];
+    } catch {
+      return [];
+    }
+  }
+  async function refreshGlobal() {
+    if (!sbOn()) return;
+    try {
+      const r = await fetch(
+        SB_URL + "/rest/v1/songs?select=id,title,lang,chordpro&order=title",
+        { headers: sbHeaders({ Authorization: "Bearer " + (sbToken() || SB_KEY) }) },
+      );
+      if (!r.ok) return;
+      store.set("globalsongs", JSON.stringify(await r.json()));
+      build();
+      renderList();
+    } catch {
+      /* offline -> keep cached copy */
+    }
+  }
+  async function adminLogin(email, password) {
+    try {
+      const r = await fetch(SB_URL + "/auth/v1/token?grant_type=password", {
+        method: "POST",
+        headers: sbHeaders(),
+        body: JSON.stringify({ email, password }),
+      });
+      if (!r.ok) return false;
+      const d = await r.json();
+      store.set("sb_token", d.access_token || "");
+      return !!d.access_token;
+    } catch {
+      return false;
+    }
+  }
+  async function promptLogin() {
+    const email = prompt("Admin email:");
+    if (!email) return false;
+    const pw = prompt("Admin password:");
+    if (!pw) return false;
+    const ok = await adminLogin(email.trim(), pw);
+    if (!ok) alert("Login failed — check the email/password.");
+    return ok;
+  }
+  // write (insert if no id, else update); returns {ok} or {needLogin}
+  async function sbWrite(row, id) {
+    if (!sbToken()) return { needLogin: true };
+    const base = SB_URL + "/rest/v1/songs";
+    const opts = {
+      headers: sbHeaders({
+        Authorization: "Bearer " + sbToken(),
+        Prefer: "return=minimal",
+      }),
+    };
+    let r;
+    if (id)
+      r = await fetch(base + "?id=eq." + id, { method: "PATCH", body: JSON.stringify(row), ...opts });
+    else r = await fetch(base, { method: "POST", body: JSON.stringify(row), ...opts });
+    if (r.status === 401) {
+      store.set("sb_token", "");
+      return { needLogin: true };
+    }
+    return { ok: r.ok };
+  }
+  async function sbDelete(id) {
+    if (!sbToken()) return { needLogin: true };
+    const r = await fetch(SB_URL + "/rest/v1/songs?id=eq." + id, {
+      method: "DELETE",
+      headers: sbHeaders({ Authorization: "Bearer " + sbToken() }),
+    });
+    if (r.status === 401) {
+      store.set("sb_token", "");
+      return { needLogin: true };
+    }
+    return { ok: r.ok };
+  }
+
   // ---- helpers ----
   function plainText(raw) {
     return raw
@@ -293,12 +386,19 @@ const APP_NAME = "New Hope Band";
   }
 
   function build() {
+    const globalEntries = getGlobalCache().map((g) => ({
+      _uid: "g:" + g.id,
+      title: g.title || undefined,
+      versions: [{ lang: g.lang || "", text: g.chordpro || "" }],
+    }));
     const userEntries = getUserSongs().map((u) => ({
       _uid: u.id,
       title: u.name || undefined,
       versions: [{ lang: u.lang || "", text: u.chordpro || "" }],
     }));
-    songs = [...(window.SONGS || []), ...userEntries].map(normalize);
+    songs = [...(window.SONGS || []), ...globalEntries, ...userEntries].map(
+      normalize,
+    );
     songs.sort((a, b) => a.title.localeCompare(b.title));
   }
 
@@ -318,20 +418,33 @@ const APP_NAME = "New Hope Band";
   }
   function openEditor(uid) {
     editId = uid || null;
-    const ed = uid ? getUserSongs().find((s) => s.id === uid) : null;
-    $("editor-title").textContent = ed ? "Edit song" : "Add a song";
-    $("ed-name").value = ed ? ed.name || "" : "";
-    $("ed-key").value = ed ? ed.key || "" : "";
-    $("ed-lang").value = ed ? ed.lang || "" : "";
-    $("ed-german").checked = ed ? !!ed.german : false;
-    $("ed-text").value = ed ? ed.text || "" : "";
-    $("ed-delete").classList.toggle("hidden", !ed);
+    let f = { name: "", key: "", lang: "", german: false, text: "" };
+    if (uid && uid.startsWith("g:")) {
+      const g = getGlobalCache().find((x) => "g:" + x.id === uid);
+      if (g) {
+        f.name = g.title || "";
+        f.lang = g.lang || "";
+        f.text = g.chordpro || "";
+        f.key = (g.chordpro.match(/\{key:\s*([^}]+)\}/i) || [])[1] || "";
+        f.key = f.key.trim();
+      }
+    } else if (uid) {
+      const u = getUserSongs().find((s) => s.id === uid);
+      if (u) f = { ...f, ...u };
+    }
+    $("editor-title").textContent = uid ? "Edit song" : "Add a song";
+    $("ed-name").value = f.name;
+    $("ed-key").value = f.key;
+    $("ed-lang").value = f.lang;
+    $("ed-german").checked = !!f.german;
+    $("ed-text").value = f.text;
+    $("ed-delete").classList.toggle("hidden", !uid);
     $("editor").classList.remove("hidden");
   }
   function closeEditor() {
     $("editor").classList.add("hidden");
   }
-  function saveEditor() {
+  async function saveEditor() {
     const name = $("ed-name").value.trim();
     const key = $("ed-key").value.trim();
     const lang = $("ed-lang").value.trim();
@@ -342,30 +455,59 @@ const APP_NAME = "New Hope Band";
       return;
     }
     const chordpro = buildChordPro(name, key, lang, text, german);
+
+    if (sbOn()) {
+      // global save to Supabase (admin login required)
+      const row = { title: name || null, lang: lang || null, chordpro };
+      const gid = editId && editId.startsWith("g:") ? editId.slice(2) : null;
+      let res = await sbWrite(row, gid);
+      if (res.needLogin) {
+        if (!(await promptLogin())) return;
+        res = await sbWrite(row, gid);
+      }
+      if (res.ok) {
+        await refreshGlobal();
+        closeEditor();
+      } else {
+        alert("Couldn't save. Check your connection and that you're an admin.");
+      }
+      return;
+    }
+    // fallback: device-only
     const list = getUserSongs();
     if (editId) {
       const s = list.find((x) => x.id === editId);
       if (s) Object.assign(s, { name, key, lang, german, text, chordpro });
     } else {
-      list.push({
-        id: "u" + Date.now().toString(36),
-        name, key, lang, german, text, chordpro,
-      });
+      list.push({ id: "u" + Date.now().toString(36), name, key, lang, german, text, chordpro });
     }
     saveUserSongs(list);
     build();
     renderList();
     closeEditor();
   }
-  function deleteEditor() {
+  async function deleteEditor() {
     if (!editId) return;
-    if (!confirm("Delete this song from this device?")) return;
-    saveUserSongs(getUserSongs().filter((x) => x.id !== editId));
+    if (!confirm("Delete this song for everyone?")) return;
     const wasOpen = current !== null;
-    build();
+    if (editId.startsWith("g:")) {
+      let res = await sbDelete(editId.slice(2));
+      if (res.needLogin) {
+        if (!(await promptLogin())) return;
+        res = await sbDelete(editId.slice(2));
+      }
+      if (!res.ok) {
+        alert("Couldn't delete. Check your connection / admin login.");
+        return;
+      }
+      await refreshGlobal();
+    } else {
+      saveUserSongs(getUserSongs().filter((x) => x.id !== editId));
+      build();
+      renderList();
+    }
     closeEditor();
     if (wasOpen) history.back();
-    else renderList();
   }
 
   // ---- named sets (one per service) ---------------------------------------
@@ -1170,6 +1312,7 @@ const APP_NAME = "New Hope Band";
     initSets();
     const imported = checkHashImport();
     renderList();
+    refreshGlobal(); // pull the shared catalog (updates the list when it arrives)
     const sysLight =
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: light)").matches;
