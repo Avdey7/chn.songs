@@ -3714,7 +3714,7 @@ Iм‘[E]я cвятe
 {
   title: "A Ele a Glória / Тобі за все слава",
   versions: [
-    { lang: "English", text:
+    { lang: "Ukranian", text:
 `{title: A Ele a Glória / Тобі за все слава}
 {key: Eb}
 
@@ -3751,7 +3751,7 @@ Taкi нeoc[G#]яжнi cвятi [A#/D]Tвoї шляx[Cm]и
 Нaвiки, Амi[Cm]нь
 
 {comment: Outro}` },
-    { lang: "Ukranian", text:
+    { lang: "English", text:
 `{title: A Ele a Glória / Тобі за все слава}
 {key: Eb}
 
