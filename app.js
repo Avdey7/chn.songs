@@ -101,7 +101,7 @@ const APP_NAME = "New Hope Band";
     if (!sbOn()) return;
     try {
       const r = await fetch(
-        SB_URL + "/rest/v1/songs?select=id,title,data&order=title",
+        SB_URL + "/rest/v1/songs?select=id,title,data,src&order=title",
         { headers: sbHeaders({ Authorization: "Bearer " + (sbToken() || SB_KEY) }) },
       );
       if (!r.ok) return;
@@ -441,29 +441,56 @@ const APP_NAME = "New Hope Band";
       ? window.ChordConvert.convert(text, { title: name, key, german })
       : (name ? "{title: " + name + "}\n" : "") + text;
   }
+  const keyOf = (t) => ((t || "").match(/\{key:\s*([^}]+)\}/i) || [])[1]?.trim() || "";
+  function fillEditor(f) {
+    $("ed-name").value = f.name || "";
+    $("ed-key").value = f.key || "";
+    $("ed-lang").value = f.lang || "";
+    $("ed-german").checked = !!f.german;
+    $("ed-text").value = f.text || "";
+    $("ed-biling").checked = !!f.biling;
+    $("ed-lang2").value = f.lang2 || "";
+    $("ed-key2").value = f.key2 || "";
+    $("ed-german2").checked = !!f.german2;
+    $("ed-text2").value = f.text2 || "";
+    $("ed-block2").classList.toggle("hidden", !f.biling);
+  }
   function openEditor(uid) {
     editId = uid || null;
-    let f = { name: "", key: "", lang: "", german: false, text: "" };
+    let f = {};
     if (uid && uid.startsWith("g:")) {
       const g = getGlobalCache().find((x) => "g:" + x.id === uid);
-      if (g && typeof g.data === "string") {
-        f.name = g.title || "";
-        f.text = g.data;
-        f.key = (g.data.match(/\{key:\s*([^}]+)\}/i) || [])[1] || "";
-        f.key = f.key.trim();
-      } else if (g) {
-        f.name = g.title || "";
+      if (g && g.src) {
+        try {
+          f = JSON.parse(g.src);
+        } catch {}
+      }
+      if (g && !f.text) {
+        // no saved source -> rebuild the editor fields from the stored song
+        if (typeof g.data === "string") {
+          f = { name: g.title || "", text: g.data, key: keyOf(g.data) };
+        } else if (g.data && g.data.versions) {
+          const v = g.data.versions;
+          f = {
+            name: g.title || "",
+            lang: v[0] ? v[0].lang : "",
+            text: v[0] ? v[0].text : "",
+            key: keyOf(v[0] && v[0].text),
+          };
+          if (v[1]) {
+            f.biling = true;
+            f.lang2 = v[1].lang || "";
+            f.text2 = v[1].text || "";
+            f.key2 = keyOf(v[1].text);
+          }
+        }
       }
     } else if (uid) {
       const u = getUserSongs().find((s) => s.id === uid);
-      if (u) f = { ...f, ...u };
+      if (u) f = { ...u };
     }
+    fillEditor(f);
     $("editor-title").textContent = uid ? "Edit song" : "Add a song";
-    $("ed-name").value = f.name;
-    $("ed-key").value = f.key;
-    $("ed-lang").value = f.lang;
-    $("ed-german").checked = !!f.german;
-    $("ed-text").value = f.text;
     $("ed-delete").classList.toggle("hidden", !uid);
     updateAdminUI();
     $("editor").classList.remove("hidden");
@@ -473,19 +500,45 @@ const APP_NAME = "New Hope Band";
   }
   async function saveEditor() {
     const name = $("ed-name").value.trim();
-    const key = $("ed-key").value.trim();
-    const lang = $("ed-lang").value.trim();
-    const german = $("ed-german").checked;
-    const text = $("ed-text").value;
-    if (!name && !text.trim()) {
+    const p1 = {
+      key: $("ed-key").value.trim(),
+      lang: $("ed-lang").value.trim(),
+      german: $("ed-german").checked,
+      text: $("ed-text").value,
+    };
+    const p2 = {
+      key: $("ed-key2").value.trim(),
+      lang: $("ed-lang2").value.trim(),
+      german: $("ed-german2").checked,
+      text: $("ed-text2").value,
+    };
+    const biling = $("ed-biling").checked && p2.text.trim();
+    if (!name && !p1.text.trim()) {
       closeEditor();
       return;
     }
-    const chordpro = buildChordPro(name, key, lang, text, german);
+    const cp1 = buildChordPro(name, p1.key, p1.lang, p1.text, p1.german);
+    let data;
+    if (biling) {
+      const cp2 = buildChordPro(name, p2.key, p2.lang, p2.text, p2.german);
+      data = {
+        title: name || undefined,
+        versions: [
+          { lang: p1.lang || "English", text: cp1 },
+          { lang: p2.lang || "Other", text: cp2 },
+        ],
+      };
+    } else {
+      data = cp1;
+    }
+    const src = JSON.stringify({
+      name, biling: !!biling,
+      key: p1.key, lang: p1.lang, german: p1.german, text: p1.text,
+      key2: p2.key, lang2: p2.lang, german2: p2.german, text2: p2.text,
+    });
 
     if (sbOn()) {
-      // global save to Supabase (admin login required)
-      const row = { title: name || null, data: chordpro };
+      const row = { title: name || null, data, src };
       const gid = editId && editId.startsWith("g:") ? editId.slice(2) : null;
       let res = await sbWrite(row, gid);
       if (res.needLogin) {
@@ -500,13 +553,14 @@ const APP_NAME = "New Hope Band";
       }
       return;
     }
-    // fallback: device-only
+    // device fallback (single language)
     const list = getUserSongs();
+    const rec = { name, key: p1.key, lang: p1.lang, german: p1.german, text: p1.text, chordpro: cp1 };
     if (editId) {
       const s = list.find((x) => x.id === editId);
-      if (s) Object.assign(s, { name, key, lang, german, text, chordpro });
+      if (s) Object.assign(s, rec);
     } else {
-      list.push({ id: "u" + Date.now().toString(36), name, key, lang, german, text, chordpro });
+      list.push({ id: "u" + Date.now().toString(36), ...rec });
     }
     saveUserSongs(list);
     build();
@@ -1079,11 +1133,7 @@ const APP_NAME = "New Hope Band";
     renderTabs();
     renderSheet();
     updateSetBtn();
-    // edit only single-language device/global songs (bilingual via converter)
-    $("edit-btn").classList.toggle(
-      "hidden",
-      !songs[i].uid || songs[i].versions.length > 1,
-    );
+    $("edit-btn").classList.toggle("hidden", !songs[i].uid);
     listView.classList.add("hidden");
     songView.classList.remove("hidden");
     fabWrap.classList.remove("hidden");
@@ -1378,6 +1428,9 @@ const APP_NAME = "New Hope Band";
     $("ed-close").addEventListener("click", closeEditor);
     $("ed-save").addEventListener("click", saveEditor);
     $("ed-delete").addEventListener("click", deleteEditor);
+    $("ed-biling").addEventListener("change", () =>
+      $("ed-block2").classList.toggle("hidden", !$("ed-biling").checked),
+    );
     $("ed-login").addEventListener("click", async () => {
       if (await promptLogin()) {
         updateAdminUI();

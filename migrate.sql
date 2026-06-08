@@ -4,6 +4,7 @@ create table public.songs (
   id uuid primary key default gen_random_uuid(),
   title text,
   data jsonb not null,
+  src text,
   created_at timestamptz default now()
 );
 alter table public.songs enable row level security;
