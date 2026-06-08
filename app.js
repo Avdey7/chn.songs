@@ -252,6 +252,12 @@ const APP_NAME = "New Hope Band";
       }
       return { lang: v.lang, raw: v.text, parsed, title, key };
     });
+    // bilingual songs: show the English version first
+    versions.sort(
+      (a, b) =>
+        (/eng|англ/i.test(a.lang || "") ? 0 : 1) -
+        (/eng|англ/i.test(b.lang || "") ? 0 : 1),
+    );
     const title =
       (typeof entry === "object" && entry.title) ||
       versions[0].title ||
@@ -263,12 +269,103 @@ const APP_NAME = "New Hope Band";
       " " +
       versions.map((v) => plainText(v.raw)).join(" ")
     ).toLowerCase();
-    return { title, key: versions[0].key || "", versions, langs, searchText };
+    return {
+      title,
+      key: versions[0].key || "",
+      versions,
+      langs,
+      searchText,
+      uid: (typeof entry === "object" && entry._uid) || null,
+    };
+  }
+
+  // ---- songs added in-app (stored on this device) ----
+  function getUserSongs() {
+    try {
+      const a = JSON.parse(store.get("usersongs", "[]"));
+      return Array.isArray(a) ? a : [];
+    } catch {
+      return [];
+    }
+  }
+  function saveUserSongs(a) {
+    store.set("usersongs", JSON.stringify(a));
   }
 
   function build() {
-    songs = (window.SONGS || []).map(normalize);
+    const userEntries = getUserSongs().map((u) => ({
+      _uid: u.id,
+      title: u.name || undefined,
+      versions: [{ lang: u.lang || "", text: u.chordpro || "" }],
+    }));
+    songs = [...(window.SONGS || []), ...userEntries].map(normalize);
     songs.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
+  // ---- add / edit a song in-app -------------------------------------------
+  let editId = null;
+  function buildChordPro(name, key, lang, text, german) {
+    const looksCP = /\[[^\]]*\]|\{[^}]*\}/.test(text);
+    if (looksCP) {
+      let pre = "";
+      if (name && !/\{title:/i.test(text)) pre += "{title: " + name + "}\n";
+      if (key && !/\{key:/i.test(text)) pre += "{key: " + key + "}\n";
+      return pre ? pre + "\n" + text : text;
+    }
+    return window.ChordConvert
+      ? window.ChordConvert.convert(text, { title: name, key, german })
+      : (name ? "{title: " + name + "}\n" : "") + text;
+  }
+  function openEditor(uid) {
+    editId = uid || null;
+    const ed = uid ? getUserSongs().find((s) => s.id === uid) : null;
+    $("editor-title").textContent = ed ? "Edit song" : "Add a song";
+    $("ed-name").value = ed ? ed.name || "" : "";
+    $("ed-key").value = ed ? ed.key || "" : "";
+    $("ed-lang").value = ed ? ed.lang || "" : "";
+    $("ed-german").checked = ed ? !!ed.german : false;
+    $("ed-text").value = ed ? ed.text || "" : "";
+    $("ed-delete").classList.toggle("hidden", !ed);
+    $("editor").classList.remove("hidden");
+  }
+  function closeEditor() {
+    $("editor").classList.add("hidden");
+  }
+  function saveEditor() {
+    const name = $("ed-name").value.trim();
+    const key = $("ed-key").value.trim();
+    const lang = $("ed-lang").value.trim();
+    const german = $("ed-german").checked;
+    const text = $("ed-text").value;
+    if (!name && !text.trim()) {
+      closeEditor();
+      return;
+    }
+    const chordpro = buildChordPro(name, key, lang, text, german);
+    const list = getUserSongs();
+    if (editId) {
+      const s = list.find((x) => x.id === editId);
+      if (s) Object.assign(s, { name, key, lang, german, text, chordpro });
+    } else {
+      list.push({
+        id: "u" + Date.now().toString(36),
+        name, key, lang, german, text, chordpro,
+      });
+    }
+    saveUserSongs(list);
+    build();
+    renderList();
+    closeEditor();
+  }
+  function deleteEditor() {
+    if (!editId) return;
+    if (!confirm("Delete this song from this device?")) return;
+    saveUserSongs(getUserSongs().filter((x) => x.id !== editId));
+    const wasOpen = current !== null;
+    build();
+    closeEditor();
+    if (wasOpen) history.back();
+    else renderList();
   }
 
   // ---- named sets (one per service) ---------------------------------------
@@ -664,6 +761,10 @@ const APP_NAME = "New Hope Band";
   }
 
   // ---- song view ----
+  const ENH = { Cb: "B", Fb: "E", "B#": "C", "E#": "F" };
+  function fixEnharmonic(text) {
+    return text.replace(/([A-G])(#|b)?/g, (m, L, acc) => ENH[L + (acc || "")] || m);
+  }
   function keyName(baseKey, d) {
     if (!baseKey) return null;
     try {
@@ -708,8 +809,13 @@ const APP_NAME = "New Hope Band";
     sheetEl.innerHTML = song
       ? formatter.format(song)
       : "<p>Could not render this song.</p>";
+    // fix impossible enharmonics from transposing (Cb->B, Fb->E, B#->C, E#->F)
+    sheetEl.querySelectorAll(".chord").forEach((c) => {
+      c.textContent = fixEnharmonic(c.textContent);
+    });
 
-    const now = keyName(v.key, delta);
+    let now = keyName(v.key, delta);
+    if (now) now = fixEnharmonic(now);
     keyNowEl.textContent =
       now || (delta === 0 ? "\u2014" : delta > 0 ? "+" + delta : String(delta));
     if (v.key) {
@@ -804,6 +910,7 @@ const APP_NAME = "New Hope Band";
     renderTabs();
     renderSheet();
     updateSetBtn();
+    $("edit-btn").classList.toggle("hidden", !songs[i].uid);
     listView.classList.add("hidden");
     songView.classList.remove("hidden");
     fabWrap.classList.remove("hidden");
@@ -948,6 +1055,44 @@ const APP_NAME = "New Hope Band";
     const now = $("size-now");
     if (now) now.textContent = Math.round(size * 100) + "%";
   }
+  function resetSize() {
+    size = 1.0;
+    applySize();
+  }
+
+  // ---- pinch-to-zoom the lyrics (two fingers, while a song is open) ----
+  let pinchDist = 0,
+    pinchSize = 1;
+  const twoDist = (t) =>
+    Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  window.addEventListener(
+    "touchstart",
+    (e) => {
+      if (current !== null && e.touches.length === 2) {
+        pinchDist = twoDist(e.touches);
+        pinchSize = size;
+      }
+    },
+    { passive: true },
+  );
+  window.addEventListener(
+    "touchmove",
+    (e) => {
+      if (current !== null && e.touches.length === 2 && pinchDist) {
+        e.preventDefault();
+        size = pinchSize * (twoDist(e.touches) / pinchDist);
+        applySize();
+      }
+    },
+    { passive: false },
+  );
+  window.addEventListener(
+    "touchend",
+    (e) => {
+      if (e.touches.length < 2) pinchDist = 0;
+    },
+    { passive: true },
+  );
 
   // ---- theme ----
   const ICON_SUN =
@@ -968,7 +1113,7 @@ const APP_NAME = "New Hope Band";
   let scrolling = false,
     rafId = null,
     scrollAcc = 0;
-  let scrollSpeed = parseFloat(store.get("scrollspeed", "1.2"));
+  let scrollSpeed = parseFloat(store.get("scrollspeed", "0.6"));
   const scrollBtn = $("scroll-btn");
   function tick() {
     if (!scrolling) return;
@@ -1054,6 +1199,24 @@ const APP_NAME = "New Hope Band";
     $("key-up").addEventListener("click", () => transpose(1));
     $("key-down").addEventListener("click", () => transpose(-1));
     $("key-reset").addEventListener("click", resetTranspose);
+    $("size-reset").addEventListener("click", resetSize);
+    $("add-btn").addEventListener("click", () => openEditor());
+    $("ed-close").addEventListener("click", closeEditor);
+    $("ed-save").addEventListener("click", saveEditor);
+    $("ed-delete").addEventListener("click", deleteEditor);
+    $("editor").addEventListener("click", (e) => {
+      if (e.target.id === "editor") closeEditor();
+    });
+    $("pdf-btn").addEventListener("click", () => {
+      closeControls();
+      setTimeout(() => window.print(), 80);
+    });
+    $("edit-btn").addEventListener("click", () => {
+      if (current !== null && songs[current].uid) {
+        closeControls();
+        openEditor(songs[current].uid);
+      }
+    });
     $("chords-btn").addEventListener("click", toggleChords);
     $("set-btn").addEventListener("click", toggleSet);
     $("fab").addEventListener("click", toggleControls);
