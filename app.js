@@ -1,0 +1,1180 @@
+/* ============================================================================
+   Songbook app logic. You normally won't need to touch this file —
+   add songs in songs.js. Edit the app name on the next line if you like.
+   ========================================================================== */
+const APP_NAME = "New Hope Band";
+
+(function () {
+  "use strict";
+
+  const CS = window.ChordSheetJS;
+  const parser = new CS.ChordProParser();
+  const formatter = new CS.HtmlDivFormatter();
+
+  // ---- DOM ----
+  const $ = (id) => document.getElementById(id);
+  const listView = $("list-view"),
+    songView = $("song-view");
+  const listEl = $("list"),
+    countEl = $("count"),
+    searchEl = $("search");
+  const titleEl = $("song-title"),
+    keylineEl = $("keyline"),
+    sheetEl = $("sheet");
+  const keyNowEl = $("key-now"),
+    langTabsEl = $("lang-tabs"),
+    chipsEl = $("section-chips");
+
+  // ---- state ----
+  let songs = []; // normalized songs (see normalize())
+  let current = null; // open song index
+  let vi = 0; // open version index
+  let delta = 0; // transpose offset for the open version
+  let listMode = "all"; // "all" | "set"
+  let listScrollY = 0; // remember scroll position in the list
+  let currentMatches = []; // songs currently shown in the list (nav source)
+  let navList = []; // song objects to swipe through
+  let navPos = -1; // position within navList
+
+  // ---- persistence (localStorage works in a deployed PWA) ----
+  const store = {
+    get: (k, d) => {
+      try {
+        const v = localStorage.getItem(k);
+        return v === null ? d : v;
+      } catch {
+        return d;
+      }
+    },
+    set: (k, v) => {
+      try {
+        localStorage.setItem(k, v);
+      } catch {}
+    },
+  };
+
+  // ---- helpers ----
+  function plainText(raw) {
+    return raw
+      .replace(/\{[^}]*\}/g, " ")
+      .replace(/\[[^\]]*\]/g, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  }
+
+  // ---- universal formatting -------------------------------------------------
+  // Recognises section words in any language and shows them in English, so
+  // every song lays out the same way without hand-formatting. Songs already
+  // using {start_of_chorus} are left untouched.
+  const SECTION_EN = {
+    intro: "Intro", вступ: "Intro", інтро: "Intro",
+    verse: "Verse", куплет: "Verse", заспів: "Verse",
+    prechorus: "Pre-Chorus", передприспів: "Pre-Chorus",
+    chorus: "Chorus", приспів: "Chorus", припев: "Chorus",
+    refrain: "Refrain",
+    bridge: "Bridge", бридж: "Bridge", брідж: "Bridge",
+    instrumental: "Instrumental", програш: "Instrumental", проигрыш: "Instrumental",
+    interlude: "Interlude",
+    turn: "Turnaround", turnaround: "Turnaround",
+    outro: "Outro", ending: "Outro", coda: "Outro",
+    фінал: "Outro", кінцівка: "Outro",
+    tag: "Tag", vamp: "Vamp", hook: "Hook",
+    solo: "Solo", соло: "Solo",
+    breakdown: "Breakdown", channel: "Channel",
+  };
+  const SECTION_KEYS = new Set(Object.keys(SECTION_EN));
+  const CHORUS_KEYS = new Set([
+    "chorus", "refrain", "приспів", "припев", "заспів",
+  ]);
+  function headerKey(line) {
+    return line
+      .toLowerCase()
+      .replace(/[0-9]/g, "")
+      .replace(/[xх]\d*/g, "")
+      .replace(/[():.\-–—\s]/g, "");
+  }
+  // Turn a recognised header into its English label, keeping a section number
+  // and/or repeat marker (e.g. "Куплет 1" -> "Verse 1", "Приспів x2" -> "Chorus x2").
+  function englishLabel(text) {
+    const base = SECTION_EN[headerKey(text)];
+    if (!base) return text; // unknown / arbitrary note -> leave as written
+    let rest = text;
+    let rep = "";
+    const repM = rest.match(/[xх]\s*\d+|\(\s*\d+\s*[xх]\s*\)/i);
+    if (repM) {
+      rep = repM[0].trim().replace(/\s+/g, "");
+      rest = rest.replace(repM[0], " ");
+    }
+    const numM = rest.match(/\d+/);
+    let label = base;
+    if (numM) label += " " + numM[0];
+    if (rep) label += " " + rep;
+    return label;
+  }
+  function isHeaderLine(line) {
+    const t = line.trim();
+    if (!t || t.length > 28) return false;
+    if (/[[\]{}|]/.test(t)) return false; // chords, directives, bar lines
+    return SECTION_KEYS.has(headerKey(t));
+  }
+  // Chord lines (intro / instrumental / turnarounds), whether written as bare
+  // names ("Em C G") or bracketed with bars ("| [Em] . | [C] . |"), are
+  // normalised to clean, transposable chords: bar lines and beat dots are
+  // dropped, bare chords get [brackets], repeat markers (x2) are kept.
+  const CHORD_RE =
+    /^[A-H](?:#|b)?(?:maj|min|sus|add|aug|dim|m|M|\+|°|ø|h|[0-9]|b|#)*(?:\/[A-H](?:#|b)?)?$/;
+  const BRACKET_CHORD = /^\[.+\]$/;
+  function isChordLine(line) {
+    const t = line.trim();
+    if (!t || /^\{/.test(t)) return false; // blank or directive
+    let chords = 0;
+    for (const tok of t.split(/\s+/)) {
+      if (BRACKET_CHORD.test(tok) || CHORD_RE.test(tok)) {
+        chords++;
+        continue;
+      }
+      if (/^[|:.\-–—/()xх×\d]+$/i.test(tok)) continue; // separators / markers
+      return false; // a real word -> it's lyrics, leave it alone
+    }
+    return chords > 0;
+  }
+  function cleanChordLine(line) {
+    const out = [];
+    for (const tok of line.trim().split(/\s+/)) {
+      if (BRACKET_CHORD.test(tok)) out.push(tok);
+      else if (CHORD_RE.test(tok)) out.push("[" + tok + "]");
+      else if (/[xх\d]/i.test(tok)) out.push(tok); // keep markers like x2 / (2x)
+      // pure bar lines / dots / dashes are dropped
+    }
+    return out.join(" ");
+  }
+  // per-line cleanup applied to non-header lines
+  function transformLine(line) {
+    if (isChordLine(line)) return cleanChordLine(line);
+    // a space right after a chord, before a word, shifts the chord off the
+    // word; collapse it (but keep "[G] [C]" gaps on chord-only lines)
+    return line.replace(/\]\s+(?=[^\s[{])/g, "]");
+  }
+  // If a line is made up only of bracketed tokens (e.g. "[CHORUS] [x2]" or
+  // "[x2]"), return the inner texts; else null. Used to turn bracketed section
+  // labels / markers into proper labels instead of rendering them as chords.
+  function bracketTokens(t) {
+    if (!/^(?:\s*\[[^\][]*\]\s*)+$/.test(t)) return null;
+    return [...t.matchAll(/\[([^\][]*)\]/g)]
+      .map((m) => m[1].trim())
+      .filter(Boolean);
+  }
+
+  function standardize(text) {
+    const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const t = line.trim();
+      const comm = t.match(/^\{(?:comment|c|ci)\s*:\s*(.+?)\}$/i);
+      const bt = bracketTokens(t); // ["CHORUS","x2"] for "[CHORUS] [x2]"
+      let isHeader = false,
+        isChorus = false,
+        emit = line;
+      if (isHeaderLine(line)) {
+        isHeader = true;
+        emit = "{comment: " + englishLabel(t) + "}"; // bare word -> English label
+        isChorus = CHORUS_KEYS.has(headerKey(t));
+      } else if (comm) {
+        isHeader = true; // translate the existing comment to English too
+        emit = "{comment: " + englishLabel(comm[1]) + "}";
+        isChorus = CHORUS_KEYS.has(headerKey(comm[1]));
+      } else if (bt) {
+        const hasSection = bt.some((x) => SECTION_KEYS.has(headerKey(x)));
+        const hasChord = bt.some((x) => CHORD_RE.test(x));
+        if (hasSection) {
+          // bracketed label (+ optional marker) -> English {comment:} label
+          isHeader = true;
+          emit = "{comment: " + englishLabel(bt.join(" ")) + "}";
+          isChorus = bt.some((x) => CHORUS_KEYS.has(headerKey(x)));
+        } else if (!hasChord) {
+          // marker-only line like "[x2]" -> small label, not a chord
+          isHeader = true;
+          emit = "{comment: " + bt.join(" ") + "}";
+        }
+        // else: real chords (e.g. "[G] [C]") -> leave for chord-line handling
+      }
+      if (!isHeader) {
+        out.push(transformLine(line));
+        i++;
+        continue;
+      }
+      out.push(emit);
+      i++;
+      if (isChorus && !/^\{(start_of_chorus|soc)\b/i.test((lines[i] || "").trim())) {
+        const body = [];
+        while (i < lines.length) {
+          const l = lines[i];
+          if (!l.trim() || isHeaderLine(l) || /^\{/.test(l.trim())) break;
+          body.push(transformLine(l));
+          i++;
+        }
+        if (body.length) {
+          out.push("{start_of_chorus}", ...body, "{end_of_chorus}");
+        }
+      }
+    }
+    return out.join("\n");
+  }
+
+  // Accepts either a plain ChordPro STRING (single language) or an OBJECT:
+  //   { title?: "...", versions: [ { lang: "Українською", text: `...` }, { lang: "English", text: `...` } ] }
+  function normalize(entry) {
+    let rawVersions;
+    if (typeof entry === "string") {
+      rawVersions = [{ lang: "", text: entry }];
+    } else {
+      rawVersions = (entry.versions || []).map((v) => ({
+        lang: v.lang || "",
+        text: v.text || v.chordpro || "",
+      }));
+      if (!rawVersions.length) rawVersions = [{ lang: "", text: "" }];
+    }
+    const versions = rawVersions.map((v) => {
+      let parsed = null,
+        title = "",
+        key = "";
+      try {
+        parsed = parser.parse(standardize(v.text));
+        title = parsed.title || "";
+        key = parsed.key || "";
+      } catch (e) {
+        console.error("Parse error:", e);
+      }
+      return { lang: v.lang, raw: v.text, parsed, title, key };
+    });
+    const title =
+      (typeof entry === "object" && entry.title) ||
+      versions[0].title ||
+      (versions[0].raw.match(/\{title:\s*([^}]+)\}/i) || [])[1] ||
+      "Untitled";
+    const langs = versions.map((v) => v.lang).filter(Boolean);
+    const searchText = (
+      title +
+      " " +
+      versions.map((v) => plainText(v.raw)).join(" ")
+    ).toLowerCase();
+    return { title, key: versions[0].key || "", versions, langs, searchText };
+  }
+
+  function build() {
+    songs = (window.SONGS || []).map(normalize);
+    songs.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
+  // ---- named sets (one per service) ---------------------------------------
+  // Stored as [{ id, name, songs:[titles] }]; "activeSet" holds the open one.
+  let activeSetId = null;
+  function uid() {
+    return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  function getSets() {
+    try {
+      const a = JSON.parse(store.get("sets", "null"));
+      return Array.isArray(a) ? a : null;
+    } catch {
+      return null;
+    }
+  }
+  function saveSets(arr) {
+    store.set("sets", JSON.stringify(arr));
+  }
+  function initSets() {
+    let sets = getSets();
+    if (!sets) {
+      // migrate the old single "setlist" if present
+      let old = [];
+      try {
+        const o = JSON.parse(store.get("setlist", "[]"));
+        if (Array.isArray(o)) old = o;
+      } catch {}
+      sets = [{ id: uid(), name: "My set", songs: old }];
+      saveSets(sets);
+    }
+    activeSetId = store.get("activeSet", sets[0].id);
+    if (!sets.some((s) => s.id === activeSetId)) activeSetId = sets[0].id;
+    store.set("activeSet", activeSetId);
+  }
+  function activeSet() {
+    const sets = getSets() || [];
+    return sets.find((s) => s.id === activeSetId) || sets[0];
+  }
+  function getSet() {
+    const s = activeSet();
+    return s ? s.songs.slice() : [];
+  }
+  function saveSet(a) {
+    const sets = getSets() || [];
+    const s = sets.find((x) => x.id === activeSetId);
+    if (s) {
+      s.songs = a;
+      saveSets(sets);
+    }
+    updateSetCount();
+    // if the Set list is the visible view, keep it in sync immediately
+    if (current === null && listMode === "set") renderList();
+  }
+  function setHas(title) {
+    return getSet().includes(title);
+  }
+  function setToggle(title) {
+    const a = getSet();
+    const i = a.indexOf(title);
+    if (i >= 0) a.splice(i, 1);
+    else a.push(title);
+    saveSet(a);
+  }
+  function setRemove(title) {
+    saveSet(getSet().filter((t) => t !== title));
+  }
+
+  // create / switch / rename / delete sets
+  function createSet(name) {
+    const sets = getSets() || [];
+    const s = { id: uid(), name: name || "New set", songs: [] };
+    sets.push(s);
+    saveSets(sets);
+    activeSetId = s.id;
+    store.set("activeSet", activeSetId);
+    return s;
+  }
+  function switchSet(id) {
+    activeSetId = id;
+    store.set("activeSet", id);
+    updateSetCount();
+    renderSetBar();
+    renderList();
+  }
+  function renameSet(id, name) {
+    const sets = getSets() || [];
+    const s = sets.find((x) => x.id === id);
+    if (s) {
+      s.name = name;
+      saveSets(sets);
+    }
+  }
+  function deleteSet(id) {
+    let sets = (getSets() || []).filter((x) => x.id !== id);
+    if (!sets.length) sets = [{ id: uid(), name: "My set", songs: [] }];
+    saveSets(sets);
+    activeSetId = sets[0].id;
+    store.set("activeSet", activeSetId);
+  }
+
+  // ---- share / import a set via link --------------------------------------
+  function shareSet() {
+    const s = activeSet();
+    if (!s) return;
+    const payload = encodeURIComponent(JSON.stringify({ n: s.name, s: s.songs }));
+    const url = location.origin + location.pathname + "#set=" + payload;
+    if (navigator.share) {
+      navigator.share({ title: "Set: " + s.name, url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard
+        .writeText(url)
+        .then(
+          () => alert("Share link copied to clipboard."),
+          () => prompt("Copy this link:", url),
+        );
+    } else {
+      prompt("Copy this link:", url);
+    }
+  }
+  function importFromText(text) {
+    let payload = (text || "").trim();
+    const idx = payload.indexOf("#set=");
+    if (idx >= 0) payload = payload.slice(idx + 5);
+    try {
+      const obj = JSON.parse(decodeURIComponent(payload));
+      if (!obj || !Array.isArray(obj.s)) return null;
+      const sets = getSets() || [];
+      const s = { id: uid(), name: obj.n || "Imported set", songs: obj.s };
+      sets.push(s);
+      saveSets(sets);
+      activeSetId = s.id;
+      store.set("activeSet", activeSetId);
+      return s;
+    } catch {
+      return null;
+    }
+  }
+  function importSetPrompt() {
+    const text = prompt("Paste a shared set link:");
+    if (!text) return;
+    const s = importFromText(text);
+    if (s) {
+      const have = s.songs.filter((t) => songs.some((x) => x.title === t)).length;
+      setListMode("set");
+      renderSetBar();
+      alert(
+        'Imported "' +
+          s.name +
+          '" — ' +
+          have +
+          " of " +
+          s.songs.length +
+          " songs found in this app.",
+      );
+    } else {
+      alert("Sorry, that link could not be read.");
+    }
+  }
+  // auto-import when the app is opened from a share link
+  function checkHashImport() {
+    if (!location.hash.startsWith("#set=")) return false;
+    const s = importFromText(location.hash);
+    history.replaceState(null, "", location.pathname + location.search);
+    return !!s;
+  }
+
+  function renderSetBar() {
+    const sel = $("set-select");
+    if (!sel) return;
+    const sets = getSets() || [];
+    sel.innerHTML = "";
+    sets.forEach((s) => {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.name + " (" + s.songs.length + ")";
+      if (s.id === activeSetId) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  // ---- drag to reorder set rows (pointer events: touch + mouse) ----
+  // The grabbed row lifts out of flow and follows the finger; a dashed
+  // placeholder shows where it will drop.
+  function enableDrag(li, handle) {
+    handle.style.touchAction = "none"; // don't scroll the page while grabbing
+    handle.addEventListener("click", (e) => e.stopPropagation());
+    handle.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        handle.setPointerCapture(e.pointerId);
+      } catch {}
+
+      const rect = li.getBoundingClientRect();
+      const offsetY = e.clientY - rect.top; // keep the row under the finger
+      const ph = document.createElement("li");
+      ph.className = "drag-placeholder";
+      ph.style.height = rect.height + "px";
+      listEl.insertBefore(ph, li);
+
+      // float the real row
+      li.classList.add("dragging");
+      li.style.position = "fixed";
+      li.style.left = rect.left + "px";
+      li.style.width = rect.width + "px";
+      li.style.top = e.clientY - offsetY + "px";
+      li.style.zIndex = "999";
+
+      const onMove = (ev) => {
+        li.style.top = ev.clientY - offsetY + "px";
+        const sibs = [
+          ...listEl.querySelectorAll(
+            "li:not(.dragging):not(.drag-placeholder)",
+          ),
+        ];
+        let placed = false;
+        for (const sib of sibs) {
+          const r = sib.getBoundingClientRect();
+          if (ev.clientY < r.top + r.height / 2) {
+            listEl.insertBefore(ph, sib);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) listEl.appendChild(ph);
+      };
+      const onUp = () => {
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        handle.removeEventListener("pointercancel", onUp);
+        // drop the row back into the placeholder's slot
+        listEl.insertBefore(li, ph);
+        ph.remove();
+        li.classList.remove("dragging");
+        li.style.cssText = "";
+        const order = [...listEl.querySelectorAll("li")]
+          .map((el) => el.dataset.title)
+          .filter(Boolean);
+        saveSet(order);
+      };
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
+      handle.addEventListener("pointercancel", onUp);
+    });
+  }
+  function clearSet() {
+    saveSet([]);
+  }
+  function updateSetCount() {
+    const n = getSet().length;
+    countEl && (countEl.dataset.set = n);
+    const badge = $("set-count");
+    if (badge) badge.textContent = n;
+    const clear = $("set-clear");
+    if (clear) clear.classList.toggle("hidden", n === 0);
+  }
+
+  // ---- list ----
+  let lastFilter = "";
+  function renderList(filter = lastFilter) {
+    lastFilter = filter;
+    const q = filter.trim().toLowerCase();
+
+    // base list depends on the active tab
+    let base;
+    if (listMode === "set") {
+      // preserve the order songs were added to the set
+      base = getSet()
+        .map((t) => songs.find((s) => s.title === t))
+        .filter(Boolean);
+    } else {
+      base = songs;
+    }
+    const matches = q ? base.filter((s) => s.searchText.includes(q)) : base;
+    currentMatches = matches; // swipe/next-prev follows the current view
+
+    listEl.innerHTML = "";
+    countEl.textContent =
+      matches.length + (matches.length === 1 ? " song" : " songs");
+
+    if (!matches.length) {
+      let msg;
+      if (listMode === "set" && !getSet().length) {
+        msg =
+          "Your set is empty. Open a song and tap <b>+ Set</b> to add it here.";
+      } else if (q) {
+        msg = "No songs match &ldquo;" + escapeHtml(filter) + "&rdquo;";
+      } else {
+        msg = "No songs yet.";
+      }
+      listEl.innerHTML = '<div class="empty">' + msg + "</div>";
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    matches.forEach((s) => {
+      const li = document.createElement("li");
+      const t = document.createElement("span");
+      t.className = "song-title";
+      t.textContent = s.title;
+      li.appendChild(t);
+      if (s.langs.length > 1) {
+        const lb = document.createElement("span");
+        lb.className = "song-langs";
+        lb.textContent = s.langs.map(abbr).join(" \u00B7 ");
+        li.appendChild(lb);
+      }
+      if (s.key) {
+        const k = document.createElement("span");
+        k.className = "song-key";
+        k.textContent = s.key;
+        li.appendChild(k);
+      }
+      if (listMode !== "set") {
+        const add = document.createElement("button");
+        const inSet = setHas(s.title);
+        add.className = "row-add" + (inSet ? " in" : "");
+        add.innerHTML = inSet ? ICON_CHECK : ICON_PLUS;
+        add.setAttribute(
+          "aria-label",
+          inSet ? "Remove from set" : "Add to set",
+        );
+        add.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setToggle(s.title);
+          const now = setHas(s.title);
+          add.classList.toggle("in", now);
+          add.innerHTML = now ? ICON_CHECK : ICON_PLUS;
+          add.setAttribute(
+            "aria-label",
+            now ? "Remove from set" : "Add to set",
+          );
+        });
+        li.appendChild(add);
+      }
+      if (listMode === "set") {
+        li.dataset.title = s.title;
+        const tools = document.createElement("span");
+        tools.className = "row-tools";
+        const rm = document.createElement("button");
+        rm.className = "row-remove";
+        rm.innerHTML = "&times;";
+        rm.setAttribute("aria-label", "Remove from set");
+        rm.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setRemove(s.title);
+          renderList();
+        });
+        tools.appendChild(rm);
+        // drag handle — only when unfiltered, so order maps to the whole set
+        if (!q) {
+          const drag = document.createElement("button");
+          drag.className = "row-drag";
+          drag.innerHTML = "&#8942;&#8942;"; // ⠿-style grip
+          drag.setAttribute("aria-label", "Drag to reorder");
+          enableDrag(li, drag);
+          tools.appendChild(drag);
+        }
+        li.appendChild(tools);
+      }
+      li.addEventListener("click", () => openSong(s));
+      frag.appendChild(li);
+    });
+    listEl.appendChild(frag);
+  }
+
+  function setListMode(mode) {
+    listMode = mode;
+    $("tab-all").classList.toggle("active", mode === "all");
+    $("tab-set").classList.toggle("active", mode === "set");
+    $("set-bar").classList.toggle("hidden", mode !== "set");
+    if (mode === "set") renderSetBar();
+    updateSetCount();
+    renderList();
+  }
+
+  function abbr(lang) {
+    const map = {
+      english: "EN",
+      ukrainian: "UK",
+      українською: "UK",
+      russian: "RU",
+      русский: "RU",
+    };
+    const low = lang.toLowerCase();
+    if (map[low]) return map[low];
+    return lang.length <= 4 ? lang : lang.slice(0, 2).toUpperCase();
+  }
+
+  // ---- song view ----
+  function keyName(baseKey, d) {
+    if (!baseKey) return null;
+    try {
+      return CS.Key.parse(baseKey).transpose(d).toString();
+    } catch {
+      return null;
+    }
+  }
+  function trKey() {
+    return "tr:" + songs[current].title + "|" + vi;
+  }
+
+  function renderTabs() {
+    const s = songs[current];
+    langTabsEl.innerHTML = "";
+    if (s.versions.length < 2) {
+      langTabsEl.classList.add("hidden");
+      return;
+    }
+    langTabsEl.classList.remove("hidden");
+    s.versions.forEach((v, i) => {
+      const b = document.createElement("button");
+      b.className = "lang-tab" + (i === vi ? " active" : "");
+      b.textContent = v.lang || "Version " + (i + 1);
+      b.addEventListener("click", () => {
+        switchVersion(i);
+      });
+      langTabsEl.appendChild(b);
+    });
+  }
+
+  function renderSheet() {
+    const v = songs[current].versions[vi];
+    let song = v.parsed;
+    if (delta !== 0 && song) {
+      try {
+        song = song.transpose(delta);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    sheetEl.innerHTML = song
+      ? formatter.format(song)
+      : "<p>Could not render this song.</p>";
+
+    const now = keyName(v.key, delta);
+    keyNowEl.textContent =
+      now || (delta === 0 ? "\u2014" : delta > 0 ? "+" + delta : String(delta));
+    if (v.key) {
+      const offset =
+        delta === 0 ? "" : "  (" + (delta > 0 ? "+" + delta : delta) + ")";
+      keylineEl.innerHTML =
+        "Original key <b>" +
+        escapeHtml(v.key) +
+        "</b>" +
+        (now && now !== v.key
+          ? " &nbsp;&middot;&nbsp; now <b>" + escapeHtml(now) + "</b>" + offset
+          : "");
+    } else {
+      keylineEl.innerHTML =
+        delta === 0
+          ? "No key set"
+          : "Transposed " + (delta > 0 ? "+" + delta : delta) + " semitone(s)";
+    }
+    buildChips();
+  }
+
+  const ICON_PLAY =
+    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20"/></svg>';
+  const ICON_PAUSE =
+    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+  const ICON_PLUS =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  const ICON_CHECK =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+  // ---- section chips: jump-to from each {comment: ...} label ----
+  function buildChips() {
+    chipsEl.innerHTML = "";
+    const comments = sheetEl.querySelectorAll(".comment");
+    if (comments.length < 2) {
+      chipsEl.classList.add("hidden");
+      return;
+    }
+    chipsEl.classList.remove("hidden");
+    comments.forEach((c) => {
+      const b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = c.textContent.trim();
+      b.addEventListener("click", () => {
+        closeControls();
+        c.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      chipsEl.appendChild(b);
+    });
+  }
+
+  function switchVersion(i) {
+    vi = i;
+    delta = parseInt(store.get(trKey(), "0"), 10) || 0;
+    renderTabs();
+    renderSheet();
+    window.scrollTo(0, 0);
+  }
+
+  // open from the list: set up the swipe sequence from the current view
+  function openSong(song) {
+    // push a history entry so the phone's Back gesture returns to the list
+    // (instead of leaving the app); popstate closes the song.
+    history.pushState({ view: "song" }, "");
+    navList = currentMatches.slice();
+    navPos = navList.indexOf(song);
+    showSong(songs.indexOf(song));
+  }
+  // swipe / arrow navigation within the current sequence
+  function gotoNav(d) {
+    if (navPos < 0) return;
+    const np = navPos + d;
+    if (np < 0 || np >= navList.length) return;
+    navPos = np;
+    showSong(songs.indexOf(navList[np]), d);
+  }
+  function animateSheet(dir) {
+    const name = dir > 0 ? "songNext" : dir < 0 ? "songPrev" : "songIn";
+    [titleEl, keylineEl, sheetEl].forEach((el) => {
+      el.style.animation = "none";
+      void el.offsetWidth; // reflow so the animation re-runs
+      el.style.animation = name + " var(--t-med) var(--ease)";
+    });
+  }
+  function showSong(i, dir = 0) {
+    if (current === null) listScrollY = window.scrollY;
+    current = i;
+    vi = 0;
+    stopScroll();
+    titleEl.textContent = songs[i].title;
+    delta = parseInt(store.get(trKey(), "0"), 10) || 0;
+    renderTabs();
+    renderSheet();
+    updateSetBtn();
+    listView.classList.add("hidden");
+    songView.classList.remove("hidden");
+    fabWrap.classList.remove("hidden");
+    closeControls(); // start with the bubble closed
+    requestWakeLock();
+    window.scrollTo(0, 0);
+    progressEl.classList.remove("hidden");
+    updateProgress();
+    animateSheet(dir);
+  }
+
+  function closeSong() {
+    stopScroll();
+    releaseWakeLock();
+    current = null;
+    songView.classList.add("hidden");
+    listView.classList.remove("hidden");
+    fabWrap.classList.add("hidden");
+    closeControls();
+    progressEl.classList.add("hidden");
+    // reflect set changes made while the song was open, then restore place
+    renderList();
+    updateSetCount();
+    window.scrollTo(0, listScrollY);
+  }
+
+  // ---- reading / autoscroll progress bar ----
+  const progressEl = $("progress"),
+    progressFill = $("progress-fill");
+  function updateProgress() {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+    progressFill.style.width = (pct * 100).toFixed(1) + "%";
+  }
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (current !== null) updateProgress();
+    },
+    { passive: true },
+  );
+
+  // ---- keep screen awake while a song is open ----
+  let wakeLock = null;
+  async function requestWakeLock() {
+    if (!("wakeLock" in navigator)) return;
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => {
+        wakeLock = null;
+      });
+    } catch {
+      /* denied or unsupported — silently ignore */
+    }
+  }
+  function releaseWakeLock() {
+    try {
+      if (wakeLock) wakeLock.release();
+    } catch {}
+    wakeLock = null;
+  }
+  // re-acquire after the tab/app returns to the foreground
+  document.addEventListener("visibilitychange", () => {
+    if (
+      document.visibilityState === "visible" &&
+      current !== null &&
+      !wakeLock
+    ) {
+      requestWakeLock();
+    }
+  });
+
+  function transpose(step) {
+    delta += step;
+    if (delta > 11) delta = 11;
+    if (delta < -11) delta = -11;
+    store.set(trKey(), String(delta));
+    renderSheet();
+  }
+  function resetTranspose() {
+    if (delta === 0) return;
+    delta = 0;
+    store.set(trKey(), "0");
+    renderSheet();
+  }
+
+  // ---- lyrics-only (hide chords) ----
+  function applyChords() {
+    const on = store.get("chords", "1") !== "0";
+    sheetEl.classList.toggle("lyrics-only", !on);
+    const btn = $("chords-btn");
+    btn.classList.toggle("on", on);
+    btn.title = on ? "Chords on" : "Lyrics only";
+  }
+  function toggleChords() {
+    store.set("chords", store.get("chords", "1") !== "0" ? "0" : "1");
+    applyChords();
+  }
+
+  // ---- add/remove the open song to the set ----
+  function updateSetBtn() {
+    const btn = $("set-btn");
+    if (!btn || current === null) return;
+    const inSet = setHas(songs[current].title);
+    btn.classList.toggle("on", inSet);
+    btn.innerHTML =
+      (inSet ? ICON_CHECK : ICON_PLUS) +
+      "<span>" +
+      (inSet ? "In set" : "Set") +
+      "</span>";
+    btn.title = inSet ? "In set" : "Add to set";
+  }
+  function toggleSet() {
+    if (current === null) return;
+    setToggle(songs[current].title);
+    updateSetBtn();
+  }
+
+  // ---- floating controls bubble (FAB) ----
+  const fabWrap = $("fab-wrap");
+  function openControls() {
+    fabWrap.classList.add("open");
+    $("fab").setAttribute("aria-label", "Close controls");
+  }
+  function closeControls() {
+    fabWrap.classList.remove("open");
+    $("fab").setAttribute("aria-label", "Open controls");
+  }
+  function toggleControls() {
+    fabWrap.classList.contains("open") ? closeControls() : openControls();
+  }
+
+  // ---- font size ----
+  let size = parseFloat(store.get("size", "1.0"));
+  function applySize() {
+    size = Math.min(2.2, Math.max(0.8, size));
+    document.documentElement.style.setProperty(
+      "--sheet-size",
+      size.toFixed(2) + "rem",
+    );
+    store.set("size", size.toFixed(2));
+    const now = $("size-now");
+    if (now) now.textContent = Math.round(size * 100) + "%";
+  }
+
+  // ---- theme ----
+  const ICON_SUN =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  const ICON_MOON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    // show the icon for what you'll switch TO
+    $("theme-btn").innerHTML = t === "light" ? ICON_MOON : ICON_SUN;
+    document
+      .querySelector('meta[name="theme-color"]')
+      .setAttribute("content", t === "light" ? "#f6f7fb" : "#0d0e12");
+    store.set("theme", t);
+  }
+
+  // ---- autoscroll ----
+  let scrolling = false,
+    rafId = null,
+    scrollAcc = 0;
+  let scrollSpeed = parseFloat(store.get("scrollspeed", "1.2"));
+  const scrollBtn = $("scroll-btn");
+  function tick() {
+    if (!scrolling) return;
+    scrollAcc += scrollSpeed;
+    if (scrollAcc >= 1) {
+      const px = Math.floor(scrollAcc);
+      window.scrollBy(0, px);
+      scrollAcc -= px;
+    }
+    updateProgress();
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 2) {
+      stopScroll();
+      return;
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+  function startScroll() {
+    if (scrolling) return;
+    scrolling = true;
+    scrollBtn.classList.add("on");
+    scrollBtn.innerHTML = ICON_PAUSE;
+    progressEl.classList.add("scrolling");
+    rafId = requestAnimationFrame(tick);
+  }
+  function stopScroll() {
+    scrolling = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    scrollBtn.classList.remove("on");
+    scrollBtn.innerHTML = ICON_PLAY;
+    progressEl.classList.remove("scrolling");
+  }
+
+  // ---- utils ----
+  function escapeHtml(s) {
+    return String(s).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
+  }
+
+  // ---- init ----
+  function init() {
+    document.title = APP_NAME;
+    $("brand").innerHTML =
+      '<span class="mark">&#10013;</span> ' + escapeHtml(APP_NAME);
+    build();
+    initSets();
+    const imported = checkHashImport();
+    renderList();
+    const sysLight =
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: light)").matches;
+    applyTheme(store.get("theme", sysLight ? "light" : "dark"));
+    applySize();
+    applyChords();
+    updateSetCount();
+    if (imported) setListMode("set");
+
+    searchEl.addEventListener("input", (e) => renderList(e.target.value));
+    $("theme-btn").addEventListener("click", () =>
+      applyTheme(
+        document.documentElement.getAttribute("data-theme") === "light"
+          ? "dark"
+          : "light",
+      ),
+    );
+    // the in-app Back button uses history so it stays in sync with the
+    // phone's Back gesture (both pop the entry pushed in openSong)
+    $("back").addEventListener("click", () => {
+      if (current !== null) history.back();
+    });
+    $("brand").addEventListener("click", () => {
+      if (current !== null) history.back();
+      else window.scrollTo(0, 0);
+    });
+    $("key-up").addEventListener("click", () => transpose(1));
+    $("key-down").addEventListener("click", () => transpose(-1));
+    $("key-reset").addEventListener("click", resetTranspose);
+    $("chords-btn").addEventListener("click", toggleChords);
+    $("set-btn").addEventListener("click", toggleSet);
+    $("fab").addEventListener("click", toggleControls);
+    // tap outside the bubble (on the song) closes it
+    document.addEventListener("click", (e) => {
+      if (fabWrap.classList.contains("open") && !fabWrap.contains(e.target)) {
+        closeControls();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeControls();
+      if (current === null) return;
+      if (e.target.matches && e.target.matches("input, textarea, select")) return;
+      if (e.key === "ArrowRight") gotoNav(1);
+      if (e.key === "ArrowLeft") gotoNav(-1);
+    });
+    $("tab-all").addEventListener("click", () => setListMode("all"));
+    $("tab-set").addEventListener("click", () => setListMode("set"));
+    $("set-clear").addEventListener("click", () => {
+      if (!getSet().length) return;
+      if (!confirm("Clear all songs from this set?")) return;
+      clearSet();
+      renderList();
+    });
+    // named-set controls
+    $("set-select").addEventListener("change", (e) => switchSet(e.target.value));
+    $("set-new").addEventListener("click", () => {
+      const name = prompt("Name this set:", "");
+      if (name === null) return;
+      createSet(name.trim() || "New set");
+      renderSetBar();
+      updateSetCount();
+      renderList();
+    });
+    $("set-rename").addEventListener("click", () => {
+      const s = activeSet();
+      if (!s) return;
+      const name = prompt("Rename set:", s.name);
+      if (name === null) return;
+      renameSet(s.id, name.trim() || s.name);
+      renderSetBar();
+    });
+    $("set-delete").addEventListener("click", () => {
+      const s = activeSet();
+      if (!s) return;
+      if (!confirm('Delete the set "' + s.name + '"?')) return;
+      deleteSet(s.id);
+      renderSetBar();
+      updateSetCount();
+      renderList();
+    });
+    $("set-share").addEventListener("click", shareSet);
+    $("set-import").addEventListener("click", importSetPrompt);
+    // swipe anywhere (while a song is open) to move between songs
+    let sx = 0,
+      sy = 0,
+      swiping = false;
+    function swipeStart(x, y, target) {
+      if (current === null) {
+        swiping = false;
+        return;
+      }
+      if (target && target.closest && target.closest("#fab-wrap")) {
+        swiping = false;
+        return;
+      }
+      sx = x;
+      sy = y;
+      swiping = true;
+    }
+    function swipeEnd(x, y) {
+      if (!swiping) return;
+      swiping = false;
+      const dx = x - sx,
+        dy = y - sy;
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+        gotoNav(dx < 0 ? 1 : -1);
+      }
+    }
+    // touch (phones) — passive so vertical scrolling is unaffected
+    window.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length !== 1) {
+          swiping = false;
+          return;
+        }
+        swipeStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
+      },
+      { passive: true },
+    );
+    window.addEventListener(
+      "touchend",
+      (e) => {
+        const t = e.changedTouches[0];
+        if (t) swipeEnd(t.clientX, t.clientY);
+      },
+      { passive: true },
+    );
+    // mouse (desktop)
+    window.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse") swipeStart(e.clientX, e.clientY, e.target);
+    });
+    window.addEventListener("pointerup", (e) => {
+      if (e.pointerType === "mouse") swipeEnd(e.clientX, e.clientY);
+    });
+    $("size-up").addEventListener("click", () => {
+      size += 0.1;
+      applySize();
+    });
+    $("size-down").addEventListener("click", () => {
+      size -= 0.1;
+      applySize();
+    });
+    scrollBtn.addEventListener("click", () =>
+      scrolling ? stopScroll() : startScroll(),
+    );
+    $("scroll-fast").addEventListener("click", () => {
+      scrollSpeed = Math.min(6, scrollSpeed + 0.4);
+      store.set("scrollspeed", String(scrollSpeed));
+    });
+    $("scroll-slow").addEventListener("click", () => {
+      scrollSpeed = Math.max(0.3, scrollSpeed - 0.4);
+      store.set("scrollspeed", String(scrollSpeed));
+    });
+    window.addEventListener("popstate", () => {
+      if (current !== null) closeSong();
+    });
+  }
+  document.addEventListener("DOMContentLoaded", init);
+})();

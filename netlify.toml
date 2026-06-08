@@ -1,0 +1,36 @@
+# Netlify config — cut repeat bandwidth so visitors don't re-download files.
+# The service worker already caches everything for installed/returning users;
+# these headers do the same for plain browser visits.
+
+# Vendor library never changes -> cache hard for a year.
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Icons rarely change -> cache for a week.
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# App shell + song data: let browsers reuse them but always revalidate, so
+# edits you deploy still show up promptly.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+[[headers]]
+  for = "/app.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+[[headers]]
+  for = "/songs.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# The service worker itself must never be cached, or updates stall.
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

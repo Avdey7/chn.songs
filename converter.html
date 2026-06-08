@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>New Hope Band — Sheet to ChordPro Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0d0e12; --surface:#15171e; --surface2:#1c1f29; --border:#262a36;
+    --text:#e9ebf2; --muted:#8b91a3; --accent:#aab6f7; --on-accent:#11131c;
+    --chorus:rgba(143,156,240,.13);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(120% 80% at 50% -10%,#15171f,transparent 60%),var(--bg);
+    color:var(--text);font-family:'Inter',system-ui,sans-serif;line-height:1.5;}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 18px 80px;}
+  h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.6rem;margin:0 0 4px;letter-spacing:-.02em;}
+  h1 .m{color:var(--accent);}
+  .sub{color:var(--muted);margin:0 0 22px;font-size:.95rem;}
+  .fields{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+  .field input{font-family:inherit;font-size:1rem;color:var(--text);background:var(--surface);
+    border:1px solid var(--border);border-radius:9px;padding:9px 11px;outline:none;min-width:90px;}
+  .field input:focus{border-color:var(--accent);}
+  .field.title input{min-width:240px;}
+  .toggle{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+    border-radius:9px;padding:9px 12px;cursor:pointer;font-size:.92rem;user-select:none;}
+  .toggle input{width:16px;height:16px;accent-color:var(--accent);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:820px){.grid{grid-template-columns:1fr;}}
+  .panel h2{font-family:'Inter',sans-serif;font-weight:700;font-size:1rem;margin:0 0 8px;color:var(--muted);}
+  textarea{width:100%;min-height:320px;resize:vertical;font-family:'JetBrains Mono',monospace;font-size:.82rem;
+    line-height:1.5;color:var(--text);background:var(--surface);border:1px solid var(--border);
+    border-radius:11px;padding:13px;outline:none;white-space:pre;}
+  textarea:focus{border-color:var(--accent);}
+  .out{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;}
+  @media(max-width:820px){.out{grid-template-columns:1fr;}}
+  .preview{border:1px solid var(--border);background:var(--surface);border-radius:11px;padding:14px 16px;min-height:200px;}
+  .preview .chord-sheet .paragraph{margin:0 0 1.1em;}
+  .preview .row{display:flex;flex-wrap:wrap;align-items:flex-end;}
+  .preview .column{display:inline-flex;flex-direction:column;}
+  .preview .chord{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent);
+    font-size:.78em;line-height:1.1;min-height:1.2em;white-space:pre;}
+  .preview .chord:not(:empty){padding-right:.35em;}
+  .preview .column{min-width:0;max-width:100%;}
+  .preview .lyrics{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.35;}
+  .preview .comment{font-family:'JetBrains Mono',monospace;font-size:.7em;font-weight:700;
+    text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .4em;}
+  .preview h1.title{display:none;}
+  .btn{appearance:none;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;font-size:.9rem;
+    padding:9px 16px;border-radius:9px;color:var(--on-accent);background:var(--accent);border:none;margin:10px 8px 0 0;}
+  .btn.ghost{color:var(--text);background:var(--surface2);border:1px solid var(--border);}
+  .btn:active{transform:scale(.97);}
+  .hint{color:var(--muted);font-size:.82rem;margin-top:14px;border:1px dashed var(--border);
+    border-radius:10px;padding:11px 13px;}
+  .hint code{color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:.85em;}
+  .copied{color:var(--accent);font-size:.82rem;margin-left:4px;}
+  .langblock{margin-bottom:6px;}
+  #lang2-wrap{border-top:1px dashed var(--border);padding-top:14px;margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="m">&#10013;</span> Sheet &rarr; ChordPro Converter</h1>
+  <p class="sub">Paste a chord sheet (chords on a line, lyrics on the line below). Your text stays in your browser. Copy the result into <code>songs.js</code>.</p>
+
+  <div class="fields">
+    <div class="field title"><label>Song title</label><input id="f-title" placeholder="Song title" /></div>
+    <label class="toggle"><input type="checkbox" id="f-biling" /> Add a 2nd language</label>
+  </div>
+
+  <!-- Language 1 -->
+  <div class="langblock">
+    <div class="fields">
+      <div class="field"><label>Language</label><input id="f-lang" placeholder="e.g. English" /></div>
+      <div class="field"><label>Original key</label><input id="f-key" placeholder="e.g. G" /></div>
+      <label class="toggle"><input type="checkbox" id="f-german" /> Slavic notation (H = B)</label>
+    </div>
+    <div class="grid">
+      <div class="panel">
+        <h2>Paste sheet</h2>
+        <textarea id="input" placeholder="VERSE&#10;G            C&#10;Type or paste your sheet..."></textarea>
+      </div>
+      <div class="panel">
+        <h2>ChordPro &mdash; editable</h2>
+        <textarea id="output" spellcheck="false" placeholder="Converted ChordPro appears here. You can edit it directly; the preview updates live."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Language 2 (optional) -->
+  <div class="langblock" id="lang2-wrap" hidden>
+    <div class="fields">
+      <div class="field"><label>Language 2</label><input id="f-lang2" placeholder="e.g. Українською" /></div>
+      <div class="field"><label>Original key</label><input id="f-key2" placeholder="e.g. A" /></div>
+      <label class="toggle"><input type="checkbox" id="f-german2" /> Slavic notation (H = B)</label>
+    </div>
+    <div class="grid">
+      <div class="panel">
+        <h2>Paste sheet (language 2)</h2>
+        <textarea id="input2" placeholder="Paste the second language sheet..."></textarea>
+      </div>
+      <div class="panel">
+        <h2>ChordPro 2 &mdash; editable</h2>
+        <textarea id="output2" spellcheck="false"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn" id="copy-cp">Copy ChordPro</button>
+  <button class="btn ghost" id="copy-block">Copy as songs.js block</button>
+  <span class="copied" id="copied"></span>
+
+  <div class="out">
+    <div class="panel">
+      <h2>Live preview</h2>
+      <div class="preview" id="preview"></div>
+    </div>
+    <div class="panel">
+      <h2>How to use</h2>
+      <div class="hint">
+        1. Paste one song, set the title + key.<br>
+        2. For Ukrainian/Russian sheets that use <code>H</code> for B, tick <b>Slavic notation</b>.<br>
+        3. Check the preview: each chord should sit over the right syllable. Source sheets that are well aligned convert cleanly; if a chord is one syllable off, nudge it in the left box.<br>
+        4. Click <b>Copy as songs.js block</b> and paste it into the <code>SONGS</code> array in <code>songs.js</code>.<br>
+        5. For a bilingual song, tick <b>Add a 2nd language</b>, fill in both sheets (each with its own key and Slavic-notation setting), then <b>Copy as songs.js block</b> &mdash; it outputs the full <code>versions</code> object ready to paste.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/chordsheetjs.min.js"></script>
+<script src="convert-core.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const parser = new ChordSheetJS.ChordProParser();
+  const fmt = new ChordSheetJS.HtmlDivFormatter();
+
+  function renderPreview(id) {
+    const cp = $(id).value;
+    try { $("preview").innerHTML = cp.trim() ? fmt.format(parser.parse(cp)) : "<span style='color:var(--muted)'>Preview appears here.</span>"; }
+    catch (e) { $("preview").innerHTML = "<span style='color:#c66'>Preview error: " + e.message + "</span>"; }
+  }
+  // convert a sheet pane -> its ChordPro output (editing the output is allowed;
+  // renderPreview keeps the live preview in sync without overwriting edits).
+  function run1() {
+    $("output").value = ChordConvert.convert($("input").value, {
+      title: $("f-title").value, key: $("f-key").value, german: $("f-german").checked
+    });
+    renderPreview("output");
+  }
+  function run2() {
+    $("output2").value = ChordConvert.convert($("input2").value, {
+      title: $("f-title").value, key: $("f-key2").value, german: $("f-german2").checked
+    });
+    renderPreview("output2");
+  }
+
+  function bilingual() {
+    return $("f-biling").checked && $("output2").value.trim();
+  }
+  function blockForSongsJs() {
+    if (bilingual()) {
+      const title = $("f-title").value.trim();
+      const l1 = $("f-lang").value.trim() || "Language 1";
+      const l2 = $("f-lang2").value.trim() || "Language 2";
+      return (
+        "{\n  title: \"" + title + "\",\n  versions: [\n" +
+        "    { lang: \"" + l1 + "\", text:\n`" + $("output").value + "` },\n" +
+        "    { lang: \"" + l2 + "\", text:\n`" + $("output2").value + "` }\n" +
+        "  ]\n},"
+      );
+    }
+    return "`" + $("output").value + "`,";
+  }
+
+  function copy(text, label) {
+    navigator.clipboard.writeText(text).then(() => {
+      $("copied").textContent = label + " copied!";
+      setTimeout(() => ($("copied").textContent = ""), 2000);
+    });
+  }
+
+  ["input", "f-key"].forEach((id) => $(id).addEventListener("input", run1));
+  $("f-german").addEventListener("change", run1);
+  $("output").addEventListener("input", () => renderPreview("output"));
+  ["input2", "f-key2"].forEach((id) => $(id).addEventListener("input", run2));
+  $("f-german2").addEventListener("change", run2);
+  $("output2").addEventListener("input", () => renderPreview("output2"));
+  // title is shared by both languages
+  $("f-title").addEventListener("input", () => { run1(); if (bilingual()) run2(); });
+  $("f-biling").addEventListener("change", () => {
+    $("lang2-wrap").hidden = !$("f-biling").checked;
+    if ($("f-biling").checked) run2();
+  });
+  $("copy-cp").addEventListener("click", () => copy($("output").value, "ChordPro"));
+  $("copy-block").addEventListener("click", () => copy(blockForSongsJs(), "songs.js block"));
+  run1();
+</script>
+</body>
+</html>
