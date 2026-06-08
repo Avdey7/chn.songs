@@ -63,6 +63,26 @@ const APP_NAME = "New Hope Band";
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyeWFmcWFocWtnbndmeHB2bmJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5Mzk2NzMsImV4cCI6MjA5NjUxNTY3M30.HDgmG4mz35S3t_Kq0b1UbdLqlbQcsNyTByrJCG65Z2w";
   const sbOn = () => !!SB_URL && !!SB_KEY;
   const sbToken = () => store.get("sb_token", "");
+  function loggedIn() {
+    return !!sbToken() && Date.now() < +store.get("sb_exp", "0");
+  }
+  function logoutAdmin() {
+    store.set("sb_token", "");
+    store.set("sb_exp", "0");
+    store.set("sb_email", "");
+    updateAdminUI();
+  }
+  function updateAdminUI() {
+    const row = $("ed-admin");
+    if (!row) return;
+    row.classList.toggle("hidden", !sbOn());
+    const inn = loggedIn();
+    $("ed-status").textContent = inn
+      ? "Signed in: " + store.get("sb_email", "admin")
+      : "Not signed in";
+    $("ed-login").classList.toggle("hidden", inn);
+    $("ed-logout").classList.toggle("hidden", !inn);
+  }
   function sbHeaders(extra) {
     return Object.assign(
       { apikey: SB_KEY, "Content-Type": "application/json" },
@@ -102,6 +122,8 @@ const APP_NAME = "New Hope Band";
       if (!r.ok) return false;
       const d = await r.json();
       store.set("sb_token", d.access_token || "");
+      store.set("sb_email", email || "");
+      store.set("sb_exp", String(Date.now() + (d.expires_in || 3600) * 1000));
       return !!d.access_token;
     } catch {
       return false;
@@ -439,6 +461,7 @@ const APP_NAME = "New Hope Band";
     $("ed-german").checked = !!f.german;
     $("ed-text").value = f.text;
     $("ed-delete").classList.toggle("hidden", !uid);
+    updateAdminUI();
     $("editor").classList.remove("hidden");
   }
   function closeEditor() {
@@ -1347,6 +1370,13 @@ const APP_NAME = "New Hope Band";
     $("ed-close").addEventListener("click", closeEditor);
     $("ed-save").addEventListener("click", saveEditor);
     $("ed-delete").addEventListener("click", deleteEditor);
+    $("ed-login").addEventListener("click", async () => {
+      if (await promptLogin()) {
+        updateAdminUI();
+        refreshGlobal();
+      }
+    });
+    $("ed-logout").addEventListener("click", logoutAdmin);
     $("editor").addEventListener("click", (e) => {
       if (e.target.id === "editor") closeEditor();
     });

@@ -913,6 +913,33 @@
       .editor-head strong {
         font-size: 1.1rem;
       }
+      .ed-admin {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .ed-admin .ed-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+      }
+      .ed-admin:has(#ed-logout:not(.hidden)) .ed-dot {
+        background: #46c46a;
+      }
+      .ed-link {
+        appearance: none;
+        border: none;
+        background: none;
+        color: var(--accent);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 2px 4px;
+        margin-left: auto;
+      }
       .ed-fields {
         display: flex;
         flex-wrap: wrap;
@@ -1275,6 +1302,12 @@
         <div class="editor-head">
           <strong id="editor-title">Add a song</strong>
           <button class="iconbtn" id="ed-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="ed-admin" id="ed-admin">
+          <span class="ed-dot"></span>
+          <span id="ed-status">Not signed in</span>
+          <button class="ed-link" id="ed-login">Log in</button>
+          <button class="ed-link hidden" id="ed-logout">Log out</button>
         </div>
         <div class="ed-fields">
           <input id="ed-name" placeholder="Song title" />
