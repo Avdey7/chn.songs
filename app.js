@@ -101,7 +101,7 @@ const APP_NAME = "New Hope Band";
     if (!sbOn()) return;
     try {
       const r = await fetch(
-        SB_URL + "/rest/v1/songs?select=id,title,lang,chordpro&order=title",
+        SB_URL + "/rest/v1/songs?select=id,title,data&order=title",
         { headers: sbHeaders({ Authorization: "Bearer " + (sbToken() || SB_KEY) }) },
       );
       if (!r.ok) return;
@@ -407,20 +407,23 @@ const APP_NAME = "New Hope Band";
     store.set("usersongs", JSON.stringify(a));
   }
 
+  // a Supabase row -> a SONGS entry (string data = single language, object = bilingual)
+  function rowToEntry(row) {
+    const d = row.data;
+    if (d && typeof d === "object") return Object.assign({ _uid: "g:" + row.id }, d);
+    return { _uid: "g:" + row.id, versions: [{ lang: "", text: String(d || "") }] };
+  }
   function build() {
-    const globalEntries = getGlobalCache().map((g) => ({
-      _uid: "g:" + g.id,
-      title: g.title || undefined,
-      versions: [{ lang: g.lang || "", text: g.chordpro || "" }],
-    }));
+    const cache = getGlobalCache();
+    // Once the shared catalog has loaded, it is the source of truth; songs.js
+    // is only the offline seed for the very first load.
+    const base = cache.length ? cache.map(rowToEntry) : window.SONGS || [];
     const userEntries = getUserSongs().map((u) => ({
       _uid: u.id,
       title: u.name || undefined,
       versions: [{ lang: u.lang || "", text: u.chordpro || "" }],
     }));
-    songs = [...(window.SONGS || []), ...globalEntries, ...userEntries].map(
-      normalize,
-    );
+    songs = [...base, ...userEntries].map(normalize);
     songs.sort((a, b) => a.title.localeCompare(b.title));
   }
 
@@ -443,12 +446,13 @@ const APP_NAME = "New Hope Band";
     let f = { name: "", key: "", lang: "", german: false, text: "" };
     if (uid && uid.startsWith("g:")) {
       const g = getGlobalCache().find((x) => "g:" + x.id === uid);
-      if (g) {
+      if (g && typeof g.data === "string") {
         f.name = g.title || "";
-        f.lang = g.lang || "";
-        f.text = g.chordpro || "";
-        f.key = (g.chordpro.match(/\{key:\s*([^}]+)\}/i) || [])[1] || "";
+        f.text = g.data;
+        f.key = (g.data.match(/\{key:\s*([^}]+)\}/i) || [])[1] || "";
         f.key = f.key.trim();
+      } else if (g) {
+        f.name = g.title || "";
       }
     } else if (uid) {
       const u = getUserSongs().find((s) => s.id === uid);
@@ -481,7 +485,7 @@ const APP_NAME = "New Hope Band";
 
     if (sbOn()) {
       // global save to Supabase (admin login required)
-      const row = { title: name || null, lang: lang || null, chordpro };
+      const row = { title: name || null, data: chordpro };
       const gid = editId && editId.startsWith("g:") ? editId.slice(2) : null;
       let res = await sbWrite(row, gid);
       if (res.needLogin) {
@@ -1075,7 +1079,11 @@ const APP_NAME = "New Hope Band";
     renderTabs();
     renderSheet();
     updateSetBtn();
-    $("edit-btn").classList.toggle("hidden", !songs[i].uid);
+    // edit only single-language device/global songs (bilingual via converter)
+    $("edit-btn").classList.toggle(
+      "hidden",
+      !songs[i].uid || songs[i].versions.length > 1,
+    );
     listView.classList.add("hidden");
     songView.classList.remove("hidden");
     fabWrap.classList.remove("hidden");
