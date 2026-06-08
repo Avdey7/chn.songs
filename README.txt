@@ -1,7 +1,10 @@
-# Songbook (PWA)
+# New Hope Band Songbook (PWA)
 
 A worship songbook with chords and live key transposition. Runs on iOS + Android
 + desktop from one web link. Installs to the home screen. Works offline.
+
+Author: Avdey Axonov
+License: MIT (free to use/modify/share) — see the LICENSE file.
 
 ## Files
 - index.html ............ the app (markup + styles)

@@ -1,6 +1,9 @@
 /* ============================================================================
-   Songbook app logic. You normally won't need to touch this file —
-   add songs in songs.js. Edit the app name on the next line if you like.
+   New Hope Band songbook — app logic. You normally won't need to touch this
+   file — add songs in songs.js. Edit the app name on the next line if you like.
+
+   Author: Avdey Axonov
+   License: MIT (see LICENSE) — Copyright (c) 2026 Avdey Axonov
    ========================================================================== */
 const APP_NAME = "New Hope Band";
 
@@ -638,6 +641,10 @@ const APP_NAME = "New Hope Band";
     $("tab-all").classList.toggle("active", mode === "all");
     $("tab-set").classList.toggle("active", mode === "set");
     $("set-bar").classList.toggle("hidden", mode !== "set");
+    // clear any leftover search so the tab shows its full list (a stale filter
+    // could otherwise hide newly-added songs until a reload)
+    searchEl.value = "";
+    lastFilter = "";
     if (mode === "set") renderSetBar();
     updateSetCount();
     renderList();
