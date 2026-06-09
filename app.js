@@ -106,7 +106,12 @@ const APP_NAME = "New Hope Band";
       );
       if (!r.ok) return;
       store.set("globalsongs", JSON.stringify(await r.json()));
+      const openT = current !== null ? songs[current].title : null;
       build();
+      if (openT !== null) {
+        const i = songs.findIndex((s) => s.title === openT);
+        if (i >= 0) current = i; // keep the open song valid after rebuild
+      }
       renderList();
     } catch {
       /* offline -> keep cached copy */
@@ -1126,6 +1131,7 @@ const APP_NAME = "New Hope Band";
   function showSong(i, dir = 0) {
     if (current === null) listScrollY = window.scrollY;
     current = i;
+    store.set("opensong", songs[i].title); // survive a page refresh
     vi = 0;
     stopScroll();
     titleEl.textContent = songs[i].title;
@@ -1146,6 +1152,7 @@ const APP_NAME = "New Hope Band";
   }
 
   function closeSong() {
+    store.set("opensong", "");
     stopScroll();
     releaseWakeLock();
     current = null;
@@ -1324,6 +1331,9 @@ const APP_NAME = "New Hope Band";
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
   function applyTheme(t) {
     document.documentElement.setAttribute("data-theme", t);
+    // tell the browser the page is this scheme so phone "force dark" doesn't
+    // override our light theme
+    document.documentElement.style.colorScheme = t === "light" ? "light" : "dark";
     // show the icon for what you'll switch TO
     $("theme-btn").innerHTML = t === "light" ? ICON_MOON : ICON_SUN;
     document
@@ -1393,6 +1403,12 @@ const APP_NAME = "New Hope Band";
     initSets();
     const imported = checkHashImport();
     renderList();
+    // reopen the song that was open before a refresh
+    const openT = store.get("opensong", "");
+    if (openT && !imported) {
+      const s = songs.find((x) => x.title === openT);
+      if (s) openSong(s);
+    }
     refreshGlobal(); // pull the shared catalog (updates the list when it arrives)
     const sysLight =
       window.matchMedia &&
