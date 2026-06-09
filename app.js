@@ -113,6 +113,7 @@ const APP_NAME = "New Hope Band";
         if (i >= 0) current = i; // keep the open song valid after rebuild
       }
       renderList();
+      restoreOpen(); // open the pre-refresh song once the catalog has loaded
     } catch {
       /* offline -> keep cached copy */
     }
@@ -1103,6 +1104,13 @@ const APP_NAME = "New Hope Band";
     window.scrollTo(0, 0);
   }
 
+  function restoreOpen() {
+    if (current !== null) return;
+    const t = store.get("opensong", "");
+    if (!t) return;
+    const s = songs.find((x) => x.title === t);
+    if (s) openSong(s);
+  }
   // open from the list: set up the swipe sequence from the current view
   function openSong(song) {
     // push a history entry so the phone's Back gesture returns to the list
@@ -1403,12 +1411,7 @@ const APP_NAME = "New Hope Band";
     initSets();
     const imported = checkHashImport();
     renderList();
-    // reopen the song that was open before a refresh
-    const openT = store.get("opensong", "");
-    if (openT && !imported) {
-      const s = songs.find((x) => x.title === openT);
-      if (s) openSong(s);
-    }
+    if (!imported) restoreOpen(); // reopen the song that was open before refresh
     refreshGlobal(); // pull the shared catalog (updates the list when it arrives)
     const sysLight =
       window.matchMedia &&
