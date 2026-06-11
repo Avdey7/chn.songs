@@ -872,17 +872,6 @@
         color: var(--accent-dim);
         text-decoration: none;
       }
-      .install-hint {
-        margin: 18px 2px 30px;
-        padding: 12px 14px;
-        border: 1px dashed var(--border);
-        border-radius: 10px;
-        color: var(--muted);
-        font-size: 0.85rem;
-      }
-      .install-hint b {
-        color: var(--text);
-      }
       /* add / edit song overlay */
       .editor {
         position: fixed;
@@ -1019,6 +1008,10 @@
       }
 
       /* print / save-as-PDF: only the current song, in black on white */
+      /* margin:0 makes browsers drop the URL/date/page-number header & footer */
+      @page {
+        margin: 0;
+      }
       @media print {
         body {
           background: #fff;
@@ -1035,16 +1028,27 @@
         }
         #app {
           max-width: 100%;
+          padding: 12mm 10mm;
         }
         #song-view {
           display: block !important;
         }
         .song-view h1 {
           color: #000;
+          margin-top: 0;
         }
         .sheet {
           padding: 0;
-          font-size: 11pt;
+          font-size: 10.5pt;
+        }
+        /* two columns to save paper; keep sections whole */
+        .sheet .chord-sheet {
+          column-count: 2;
+          column-gap: 10mm;
+          column-fill: auto;
+        }
+        .sheet .paragraph {
+          break-inside: avoid;
         }
         .sheet .chord {
           color: #000;
@@ -1067,9 +1071,7 @@
       <div id="list-view">
         <header>
           <div class="bar">
-            <h1 class="brand" id="brand">
-              <span class="mark">&#10013;</span> New Hope Band
-            </h1>
+            <h1 class="brand" id="brand">New Hope Band</h1>
             <button class="iconbtn" id="add-btn" title="Add a song" aria-label="Add a song">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <line x1="12" y1="5" x2="12" y2="19" />

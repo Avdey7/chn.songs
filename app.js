@@ -1437,8 +1437,7 @@ const APP_NAME = "New Hope Band";
   // ---- init ----
   function init() {
     document.title = APP_NAME;
-    $("brand").innerHTML =
-      '<span class="mark">&#10013;</span> ' + escapeHtml(APP_NAME);
+    $("brand").textContent = APP_NAME;
     build();
     initSets();
     const imported = checkHashImport();
@@ -1601,13 +1600,6 @@ const APP_NAME = "New Hope Band";
       },
       { passive: true },
     );
-    // mouse (desktop)
-    window.addEventListener("pointerdown", (e) => {
-      if (e.pointerType === "mouse") swipeStart(e.clientX, e.clientY, e.target);
-    });
-    window.addEventListener("pointerup", (e) => {
-      if (e.pointerType === "mouse") swipeEnd(e.clientX, e.clientY);
-    });
     $("size-up").addEventListener("click", () => {
       size += 0.1;
       applySize();
