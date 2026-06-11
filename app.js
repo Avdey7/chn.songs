@@ -483,7 +483,9 @@ const APP_NAME = "New Hope Band";
     editId = uid || null;
     let f = {};
     if (uid && uid.startsWith("g:")) {
-      const g = getGlobalCache().find((x) => "g:" + x.id === uid);
+      const g = getGlobalCache().find(
+        (x) => "g:" + (x.num != null ? x.num : x.id) === uid,
+      );
       if (g && g.src) {
         try {
           f = JSON.parse(g.src);
@@ -1603,7 +1605,12 @@ const APP_NAME = "New Hope Band";
         swiping = false;
         return;
       }
-      if (target && target.closest && target.closest("#fab-wrap, #editor")) {
+      // no song-switching while the editor or the controls bubble is open
+      if (
+        !$("editor").classList.contains("hidden") ||
+        fabWrap.classList.contains("open") ||
+        (target && target.closest && target.closest("#fab-wrap, #editor"))
+      ) {
         swiping = false;
         return;
       }
