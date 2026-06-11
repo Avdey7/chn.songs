@@ -106,10 +106,11 @@ const APP_NAME = "New Hope Band";
       );
       if (!r.ok) return;
       store.set("globalsongs", JSON.stringify(await r.json()));
-      const openT = current !== null ? songs[current].title : null;
+      const openId =
+        current !== null ? songs[current].uid || songs[current].title : null;
       build();
-      if (openT !== null) {
-        const i = songs.findIndex((s) => s.title === openT);
+      if (openId !== null) {
+        const i = songs.findIndex((s) => (s.uid || s.title) === openId);
         if (i >= 0) current = i; // keep the open song valid after rebuild
       }
       renderList();
@@ -196,6 +197,7 @@ const APP_NAME = "New Hope Band";
     prechorus: "Pre-Chorus", передприспів: "Pre-Chorus",
     chorus: "Chorus", приспів: "Chorus", припев: "Chorus",
     refrain: "Refrain",
+    halfchorus: "Half-Chorus", halfverse: "Half-Verse",
     bridge: "Bridge", бридж: "Bridge", брідж: "Bridge",
     instrumental: "Instrumental", програш: "Instrumental", проигрыш: "Instrumental",
     interlude: "Interlude",
@@ -208,7 +210,7 @@ const APP_NAME = "New Hope Band";
   };
   const SECTION_KEYS = new Set(Object.keys(SECTION_EN));
   const CHORUS_KEYS = new Set([
-    "chorus", "refrain", "приспів", "припев", "заспів",
+    "chorus", "halfchorus", "refrain", "приспів", "припев", "заспів",
   ]);
   function headerKey(line) {
     return line
@@ -545,6 +547,10 @@ const APP_NAME = "New Hope Band";
       key2: p2.key, lang2: p2.lang, german2: p2.german, text2: p2.text,
     });
 
+    // is the song being edited the one currently open? (re-render it after save)
+    const reopenUid =
+      current !== null && songs[current].uid === editId ? editId : null;
+
     if (sbOn()) {
       const row = { title: name || null, data, src };
       const gid = editId && editId.startsWith("g:") ? editId.slice(2) : null;
@@ -556,6 +562,7 @@ const APP_NAME = "New Hope Band";
       if (res.ok) {
         await refreshGlobal();
         closeEditor();
+        rerenderOpen(reopenUid);
       } else {
         alert("Couldn't save. Check your connection and that you're an admin.");
       }
@@ -574,6 +581,21 @@ const APP_NAME = "New Hope Band";
     build();
     renderList();
     closeEditor();
+    rerenderOpen(reopenUid);
+  }
+  // re-render the open song in place (after an edit) without leaving the page
+  function rerenderOpen(uid) {
+    if (!uid || current === null) return;
+    const i = songs.findIndex((s) => s.uid === uid);
+    if (i < 0) return;
+    current = i;
+    vi = 0;
+    delta = parseInt(store.get(trKey(), "0"), 10) || 0;
+    titleEl.textContent = songs[i].title;
+    store.set("opensong", songs[i].title);
+    renderTabs();
+    renderSheet();
+    updateSetBtn();
   }
   async function deleteEditor() {
     if (!editId) return;
@@ -1040,9 +1062,17 @@ const APP_NAME = "New Hope Band";
     sheetEl.innerHTML = song
       ? formatter.format(song)
       : "<p>Could not render this song.</p>";
-    // fix impossible enharmonics from transposing (Cb->B, Fb->E, B#->C, E#->F)
+    // tidy chords: transpose parenthesised chords (ChordSheetJS leaves "(Fm)"
+    // literal) and fix impossible enharmonics (Cb->B, Fb->E, B#->C, E#->F)
     sheetEl.querySelectorAll(".chord").forEach((c) => {
-      c.textContent = fixEnharmonic(c.textContent);
+      let t = c.textContent;
+      const m = t.match(/^\((.+)\)$/);
+      if (m && delta) {
+        try {
+          t = "(" + CS.Chord.parse(m[1]).transpose(delta).toString() + ")";
+        } catch {}
+      }
+      c.textContent = fixEnharmonic(t);
     });
 
     let now = keyName(v.key, delta);

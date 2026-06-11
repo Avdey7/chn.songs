@@ -9,7 +9,10 @@
   // decoration tokens on a chord line: bars, strum slashes, repeat marks, "x2", "(2x)"
   const DECO_RE = /^[|/().x\d\-–—:]+$/i;
 
-  function isChord(tok) { return CHORD_RE.test(tok); }
+  function isChord(tok) {
+    const m = tok.match(/^\((.+)\)$/); // (Fm) optional/passing chord
+    return CHORD_RE.test(m ? m[1] : tok);
+  }
   function isDeco(tok) { return DECO_RE.test(tok); }
 
   function isChordLine(line) {
@@ -60,7 +63,11 @@
   }
   function deGerman(sym) { return sym.split("/").map(convNote).join("/"); }
 
-  function mapChord(sym, german) { return german ? deGerman(sym) : sym; }
+  function mapChord(sym, german) {
+    const m = sym.match(/^\((.+)\)$/);
+    if (m) return "(" + (german ? deGerman(m[1]) : m[1]) + ")";
+    return german ? deGerman(sym) : sym;
+  }
 
   // ---- merge a chord line onto the lyric line beneath it ----
   function mergeLines(chordLine, lyricLine, german) {
