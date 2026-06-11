@@ -436,7 +436,9 @@ const APP_NAME = "New Hope Band";
   // ---- add / edit a song in-app -------------------------------------------
   let editId = null;
   function buildChordPro(name, key, lang, text, german) {
-    const looksCP = /\[[^\]]*\]|\{[^}]*\}/.test(text);
+    // ChordPro only if it has INLINE chords ([G]word) or {directives};
+    // bracketed section labels like [Verse 1] must still go through the converter
+    const looksCP = /\][^\s\]]/.test(text) || /\{[^}]*\}/.test(text);
     if (looksCP) {
       let pre = "";
       if (name && !/\{title:/i.test(text)) pre += "{title: " + name + "}\n";
