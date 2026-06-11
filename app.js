@@ -418,8 +418,15 @@ const APP_NAME = "New Hope Band";
   // a Supabase row -> a SONGS entry (string data = single language, object = bilingual)
   function rowToEntry(row) {
     const d = row.data;
-    if (d && typeof d === "object") return Object.assign({ _uid: "g:" + row.id }, d);
-    return { _uid: "g:" + row.id, versions: [{ lang: "", text: String(d || "") }] };
+    if (d && typeof d === "object")
+      return Object.assign({ _uid: "g:" + row.id }, d, {
+        title: row.title || d.title,
+      });
+    return {
+      _uid: "g:" + row.id,
+      title: row.title || undefined,
+      versions: [{ lang: "", text: String(d || "") }],
+    };
   }
   function build() {
     const cache = getGlobalCache();
@@ -442,10 +449,16 @@ const APP_NAME = "New Hope Band";
     // bracketed section labels like [Verse 1] must still go through the converter
     const looksCP = /\][^\s\]]/.test(text) || /\{[^}]*\}/.test(text);
     if (looksCP) {
-      let pre = "";
-      if (name && !/\{title:/i.test(text)) pre += "{title: " + name + "}\n";
-      if (key && !/\{key:/i.test(text)) pre += "{key: " + key + "}\n";
-      return pre ? pre + "\n" + text : text;
+      let t = text;
+      if (name)
+        t = /\{title:/i.test(t)
+          ? t.replace(/\{title:[^}]*\}/i, "{title: " + name + "}")
+          : "{title: " + name + "}\n" + t;
+      if (key)
+        t = /\{key:/i.test(t)
+          ? t.replace(/\{key:[^}]*\}/i, "{key: " + key + "}")
+          : "{key: " + key + "}\n" + t;
+      return t;
     }
     return window.ChordConvert
       ? window.ChordConvert.convert(text, { title: name, key, german })
