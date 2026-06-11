@@ -1603,7 +1603,7 @@ const APP_NAME = "New Hope Band";
         swiping = false;
         return;
       }
-      if (target && target.closest && target.closest("#fab-wrap")) {
+      if (target && target.closest && target.closest("#fab-wrap, #editor")) {
         swiping = false;
         return;
       }
