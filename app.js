@@ -114,6 +114,7 @@ const APP_NAME = "New Hope Band";
         if (i >= 0) current = i; // keep the open song valid after rebuild
       }
       renderList();
+      syncNav(); // keep the swipe sequence pointing at the new song objects
       restoreOpen(); // open the pre-refresh song once the catalog has loaded
     } catch {
       /* offline -> keep cached copy */
@@ -674,6 +675,7 @@ const APP_NAME = "New Hope Band";
     renderTabs();
     renderSheet();
     updateSetBtn();
+    syncNav();
   }
   async function deleteEditor() {
     if (!editId) return;
@@ -1252,8 +1254,16 @@ const APP_NAME = "New Hope Band";
     if (navPos < 0) return;
     const np = navPos + d;
     if (np < 0 || np >= navList.length) return;
+    const idx = songs.indexOf(navList[np]);
+    if (idx < 0) return; // stale reference (catalog rebuilt) — ignore
     navPos = np;
-    showSong(songs.indexOf(navList[np]), d);
+    showSong(idx, d);
+  }
+  // rebuild the swipe sequence around the open song (after a catalog rebuild)
+  function syncNav() {
+    if (current === null) return;
+    navList = currentMatches.slice();
+    navPos = navList.indexOf(songs[current]);
   }
   function animateSheet(dir) {
     const name = dir > 0 ? "songNext" : dir < 0 ? "songPrev" : "songIn";
