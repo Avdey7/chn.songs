@@ -169,9 +169,6 @@
         flex: 1;
         cursor: pointer;
       }
-      .brand .mark {
-        color: var(--accent);
-      }
       .iconbtn {
         appearance: none;
         border: 1px solid var(--border);
@@ -1045,7 +1042,9 @@
         .sheet .chord-sheet {
           column-count: 2;
           column-gap: 10mm;
-          column-fill: auto;
+          column-fill: balance;
+          orphans: 2;
+          widows: 2;
         }
         .sheet .paragraph {
           break-inside: avoid;
