@@ -870,6 +870,10 @@
         text-decoration: none;
       }
       /* add / edit song overlay */
+      html.noscroll,
+      html.noscroll body {
+        overflow: hidden;
+      }
       .editor {
         position: fixed;
         inset: 0;
@@ -878,8 +882,10 @@
         display: grid;
         place-items: end center;
         padding: 0;
+        overscroll-behavior: contain;
       }
       .editor-card {
+        overscroll-behavior: contain;
         width: 100%;
         max-width: var(--maxw);
         max-height: 92vh;

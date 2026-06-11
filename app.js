@@ -101,7 +101,7 @@ const APP_NAME = "New Hope Band";
     if (!sbOn()) return;
     try {
       const r = await fetch(
-        SB_URL + "/rest/v1/songs?select=id,title,data,src&order=title",
+        SB_URL + "/rest/v1/songs?select=id,num,title,data,src&order=num",
         { headers: sbHeaders({ Authorization: "Bearer " + (sbToken() || SB_KEY) }) },
       );
       if (!r.ok) return;
@@ -146,6 +146,8 @@ const APP_NAME = "New Hope Band";
     return ok;
   }
   // write (insert if no id, else update); returns {ok} or {needLogin}
+  // short numeric ids filter by num, legacy uuids by id
+  const sbFilter = (v) => (/^\d+$/.test(String(v)) ? "num=eq." : "id=eq.") + v;
   async function sbWrite(row, id) {
     if (!sbToken()) return { needLogin: true };
     const base = SB_URL + "/rest/v1/songs";
@@ -157,7 +159,7 @@ const APP_NAME = "New Hope Band";
     };
     let r;
     if (id)
-      r = await fetch(base + "?id=eq." + id, { method: "PATCH", body: JSON.stringify(row), ...opts });
+      r = await fetch(base + "?" + sbFilter(id), { method: "PATCH", body: JSON.stringify(row), ...opts });
     else r = await fetch(base, { method: "POST", body: JSON.stringify(row), ...opts });
     if (r.status === 401) {
       store.set("sb_token", "");
@@ -167,7 +169,7 @@ const APP_NAME = "New Hope Band";
   }
   async function sbDelete(id) {
     if (!sbToken()) return { needLogin: true };
-    const r = await fetch(SB_URL + "/rest/v1/songs?id=eq." + id, {
+    const r = await fetch(SB_URL + "/rest/v1/songs?" + sbFilter(id), {
       method: "DELETE",
       headers: sbHeaders({ Authorization: "Bearer " + sbToken() }),
     });
@@ -417,13 +419,12 @@ const APP_NAME = "New Hope Band";
 
   // a Supabase row -> a SONGS entry (string data = single language, object = bilingual)
   function rowToEntry(row) {
+    const uid = "g:" + (row.num != null ? row.num : row.id);
     const d = row.data;
     if (d && typeof d === "object")
-      return Object.assign({ _uid: "g:" + row.id }, d, {
-        title: row.title || d.title,
-      });
+      return Object.assign({ _uid: uid }, d, { title: row.title || d.title });
     return {
-      _uid: "g:" + row.id,
+      _uid: uid,
       title: row.title || undefined,
       versions: [{ lang: "", text: String(d || "") }],
     };
@@ -517,9 +518,11 @@ const APP_NAME = "New Hope Band";
     $("ed-delete").classList.toggle("hidden", !uid);
     updateAdminUI();
     $("editor").classList.remove("hidden");
+    document.documentElement.classList.add("noscroll");
   }
   function closeEditor() {
     $("editor").classList.add("hidden");
+    document.documentElement.classList.remove("noscroll");
   }
   async function saveEditor() {
     const name = $("ed-name").value.trim();
@@ -563,6 +566,11 @@ const APP_NAME = "New Hope Band";
     // is the song being edited the one currently open? (re-render it after save)
     const reopenUid =
       current !== null && songs[current].uid === editId ? editId : null;
+    // keep renamed songs in their sets
+    const oldTitle = reopenUid ? songs[current].title : null;
+    const renamed = () => {
+      if (oldTitle && name && name !== oldTitle) renameInSets(oldTitle, name);
+    };
 
     if (sbOn()) {
       const row = { title: name || null, data, src };
@@ -573,6 +581,7 @@ const APP_NAME = "New Hope Band";
         res = await sbWrite(row, gid);
       }
       if (res.ok) {
+        renamed();
         await refreshGlobal();
         closeEditor();
         rerenderOpen(reopenUid);
@@ -591,6 +600,7 @@ const APP_NAME = "New Hope Band";
       list.push({ id: "u" + Date.now().toString(36), ...rec });
     }
     saveUserSongs(list);
+    renamed();
     build();
     renderList();
     closeEditor();
@@ -650,6 +660,21 @@ const APP_NAME = "New Hope Band";
   }
   function saveSets(arr) {
     store.set("sets", JSON.stringify(arr));
+  }
+  // a renamed song keeps its place in every set
+  function renameInSets(oldT, newT) {
+    const sets = getSets() || [];
+    let changed = false;
+    sets.forEach((s) => {
+      s.songs = s.songs.map((t) => {
+        if (t === oldT) {
+          changed = true;
+          return newT;
+        }
+        return t;
+      });
+    });
+    if (changed) saveSets(sets);
   }
   function initSets() {
     let sets = getSets();
@@ -955,6 +980,8 @@ const APP_NAME = "New Hope Band";
           "aria-label",
           inSet ? "Remove from set" : "Add to set",
         );
+        // don't steal focus from the search box (keeps the keyboard open)
+        add.addEventListener("pointerdown", (e) => e.preventDefault());
         add.addEventListener("click", (e) => {
           e.stopPropagation();
           setToggle(s.title);
