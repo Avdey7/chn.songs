@@ -664,8 +664,10 @@ const APP_NAME = "New Hope Band";
   }
   // re-render the open song in place (after an edit) without leaving the page
   function rerenderOpen(uid) {
-    if (!uid || current === null) return;
-    const i = songs.findIndex((s) => s.uid === uid);
+    if (current === null) return;
+    const want = uid || songs[current].uid;
+    let i = want ? songs.findIndex((s) => s.uid === want) : -1;
+    if (i < 0) i = current < songs.length ? current : -1;
     if (i < 0) return;
     current = i;
     vi = 0;
@@ -675,6 +677,7 @@ const APP_NAME = "New Hope Band";
     renderTabs();
     renderSheet();
     updateSetBtn();
+    $("edit-btn").classList.toggle("hidden", !songs[i].uid);
     syncNav();
   }
   async function deleteEditor() {
@@ -1251,11 +1254,14 @@ const APP_NAME = "New Hope Band";
   }
   // swipe / arrow navigation within the current sequence
   function gotoNav(d) {
+    if (current === null) return;
+    // self-heal: if the sequence got stale (e.g. after a catalog rebuild)
+    if (navPos < 0 || navList.indexOf(songs[current]) < 0) syncNav();
     if (navPos < 0) return;
     const np = navPos + d;
     if (np < 0 || np >= navList.length) return;
     const idx = songs.indexOf(navList[np]);
-    if (idx < 0) return; // stale reference (catalog rebuilt) — ignore
+    if (idx < 0) return;
     navPos = np;
     showSong(idx, d);
   }
