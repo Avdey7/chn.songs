@@ -466,6 +466,56 @@ const APP_NAME = "New Hope Band";
       : (name ? "{title: " + name + "}\n" : "") + text;
   }
   const keyOf = (t) => ((t || "").match(/\{key:\s*([^}]+)\}/i) || [])[1]?.trim() || "";
+  // ChordPro -> friendly "chords above lyrics" sheet (for editing old songs)
+  function chordproToSheet(cp) {
+    const lines = String(cp).replace(/\r\n?/g, "\n").split("\n");
+    let name = "",
+      key = "";
+    const out = [];
+    for (const line of lines) {
+      const t = line.trim();
+      let m;
+      if ((m = t.match(/^\{title:\s*([^}]*)\}$/i))) {
+        name = m[1].trim();
+        continue;
+      }
+      if ((m = t.match(/^\{key:\s*([^}]*)\}$/i))) {
+        key = m[1].trim();
+        continue;
+      }
+      if (/^\{(start_of_|end_of_|soc|eoc|sov|eov|sob|eob)/i.test(t)) continue;
+      if ((m = t.match(/^\{(?:comment|c|ci)\s*:\s*(.+?)\}$/i))) {
+        out.push(m[1].trim());
+        continue;
+      }
+      if (line.indexOf("[") < 0) {
+        out.push(line);
+        continue;
+      }
+      // split a "[G]word [C]word" line into a chord row + lyric row
+      let lyric = "";
+      const chords = [];
+      for (const p of line.split(/(\[[^\]]*\])/g)) {
+        const cm = p.match(/^\[([^\]]*)\]$/);
+        if (cm) chords.push({ pos: lyric.length, sym: cm[1] });
+        else lyric += p;
+      }
+      let row = "";
+      for (const c of chords) {
+        let target = c.pos;
+        if (row.length > 0 && target <= row.length) target = row.length + 1;
+        if (target > row.length) row += " ".repeat(target - row.length);
+        row += c.sym;
+      }
+      out.push(row.replace(/\s+$/, ""));
+      if (lyric.trim() !== "") out.push(lyric.replace(/\s+$/, ""));
+    }
+    return {
+      name,
+      key,
+      text: out.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+    };
+  }
   function fillEditor(f) {
     $("ed-name").value = f.name || "";
     $("ed-key").value = f.key || "";
@@ -492,22 +542,25 @@ const APP_NAME = "New Hope Band";
         } catch {}
       }
       if (g && !f.text) {
-        // no saved source -> rebuild the editor fields from the stored song
+        // no saved source -> reverse the ChordPro into the friendly format
         if (typeof g.data === "string") {
-          f = { name: g.title || "", text: g.data, key: keyOf(g.data) };
+          const s = chordproToSheet(g.data);
+          f = { name: g.title || s.name, key: s.key, text: s.text };
         } else if (g.data && g.data.versions) {
           const v = g.data.versions;
+          const s1 = chordproToSheet(v[0] ? v[0].text : "");
           f = {
-            name: g.title || "",
+            name: g.title || s1.name,
             lang: v[0] ? v[0].lang : "",
-            text: v[0] ? v[0].text : "",
-            key: keyOf(v[0] && v[0].text),
+            key: s1.key,
+            text: s1.text,
           };
           if (v[1]) {
+            const s2 = chordproToSheet(v[1].text || "");
             f.biling = true;
             f.lang2 = v[1].lang || "";
-            f.text2 = v[1].text || "";
-            f.key2 = keyOf(v[1].text);
+            f.text2 = s2.text;
+            f.key2 = s2.key;
           }
         }
       }
