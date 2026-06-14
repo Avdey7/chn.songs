@@ -137,14 +137,41 @@ const APP_NAME = "New Hope Band";
       return false;
     }
   }
-  async function promptLogin() {
-    const email = prompt("Admin email:");
-    if (!email) return false;
-    const pw = prompt("Admin password:");
-    if (!pw) return false;
-    const ok = await adminLogin(email.trim(), pw);
-    if (!ok) alert("Login failed — check the email/password.");
-    return ok;
+  // masked login dialog -> resolves true if signed in
+  function promptLogin() {
+    return new Promise((resolve) => {
+      const ov = $("login");
+      $("login-email").value = store.get("sb_email", "");
+      $("login-pass").value = "";
+      $("login-err").textContent = "";
+      ov.classList.remove("hidden");
+      document.documentElement.classList.add("noscroll");
+      $("login-email").focus();
+      const finish = (ok) => {
+        ov.classList.add("hidden");
+        document.documentElement.classList.remove("noscroll");
+        $("login-go").removeEventListener("click", go);
+        $("login-cancel").removeEventListener("click", cancel);
+        ov.removeEventListener("keydown", onKey);
+        resolve(ok);
+      };
+      const go = async () => {
+        const ok = await adminLogin($("login-email").value.trim(), $("login-pass").value);
+        if (!ok) {
+          $("login-err").textContent = "Wrong email or password.";
+          return;
+        }
+        finish(true);
+      };
+      const cancel = () => finish(false);
+      const onKey = (e) => {
+        if (e.key === "Enter") go();
+        if (e.key === "Escape") cancel();
+      };
+      $("login-go").addEventListener("click", go);
+      $("login-cancel").addEventListener("click", cancel);
+      ov.addEventListener("keydown", onKey);
+    });
   }
   // write (insert if no id, else update); returns {ok} or {needLogin}
   // short numeric ids filter by num, legacy uuids by id
@@ -1195,6 +1222,11 @@ const APP_NAME = "New Hope Band";
           ? "No key set"
           : "Transposed " + (delta > 0 ? "+" + delta : delta) + " semitone(s)";
     }
+    // show "save key" only when transposed on a saved (DB) song
+    $("key-save").classList.toggle(
+      "hidden",
+      delta === 0 || current === null || !(songs[current].uid || "").startsWith("g:"),
+    );
     buildChips();
   }
 
@@ -1376,6 +1408,53 @@ const APP_NAME = "New Hope Band";
     delta = 0;
     store.set(trKey(), "0");
     renderSheet();
+  }
+  // admin: bake the current transpose into the song as its real key (for everyone)
+  async function bakeTranspose() {
+    if (current === null || delta === 0) return;
+    const song = songs[current];
+    if (!song.uid || !song.uid.startsWith("g:") || !sbOn()) return;
+    const v = song.versions[vi];
+    if (!v.parsed) return;
+    if (!confirm("Save the current key for everyone? This rewrites the song's chords."))
+      return;
+    let cp;
+    try {
+      cp = new CS.ChordProFormatter().format(v.parsed.transpose(delta));
+    } catch {
+      alert("Couldn't transpose this song.");
+      return;
+    }
+    const newKey = fixEnharmonic(keyName(v.key, delta) || v.key || "");
+    if (newKey)
+      cp = /\{key:/i.test(cp)
+        ? cp.replace(/\{key:[^}]*\}/i, "{key: " + newKey + "}")
+        : "{key: " + newKey + "}\n" + cp;
+    const row = getGlobalCache().find(
+      (x) => "g:" + (x.num != null ? x.num : x.id) === song.uid,
+    );
+    if (!row) return;
+    let data = row.data;
+    if (data && typeof data === "object" && data.versions) {
+      data = JSON.parse(JSON.stringify(data));
+      if (data.versions[vi]) data.versions[vi].text = cp;
+    } else {
+      data = cp;
+    }
+    let res = await sbWrite({ data, src: null }, song.uid.slice(2));
+    if (res.needLogin) {
+      if (!(await promptLogin())) return;
+      res = await sbWrite({ data, src: null }, song.uid.slice(2));
+    }
+    if (!res.ok) {
+      alert("Couldn't save the new key.");
+      return;
+    }
+    store.set(trKey(), "0");
+    const uid = song.uid;
+    await refreshGlobal();
+    delta = 0;
+    rerenderOpen(uid);
   }
 
   // ---- lyrics-only (hide chords) ----
@@ -1584,6 +1663,7 @@ const APP_NAME = "New Hope Band";
     $("key-up").addEventListener("click", () => transpose(1));
     $("key-down").addEventListener("click", () => transpose(-1));
     $("key-reset").addEventListener("click", resetTranspose);
+    $("key-save").addEventListener("click", bakeTranspose);
     $("size-reset").addEventListener("click", resetSize);
     $("add-btn").addEventListener("click", () => openEditor());
     $("ed-close").addEventListener("click", closeEditor);

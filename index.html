@@ -71,6 +71,10 @@
         box-sizing: border-box;
         -webkit-tap-highlight-color: transparent;
       }
+      /* stop iOS double-tap-to-zoom on buttons (fast +/- transpose) */
+      button {
+        touch-action: manipulation;
+      }
       :focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
@@ -941,8 +945,7 @@
       #ed-name {
         flex: 1 1 100%;
       }
-      .editor input[type="text"],
-      .editor input:not([type]) {
+      .editor input:not([type="checkbox"]) {
         flex: 1;
         min-width: 90px;
         font-family: inherit;
@@ -1008,6 +1011,11 @@
         color: var(--muted);
         font-size: 0.78rem;
         margin-left: auto;
+      }
+      .login-err {
+        color: #e2607a;
+        font-size: 0.82rem;
+        min-height: 1em;
       }
 
       /* print / save-as-PDF: only the current song, in black on white */
@@ -1163,7 +1171,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 8</span>
+          &middot; <span id="ver">build 9</span>
         </footer>
       </div>
 
@@ -1207,6 +1215,18 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="1 4 1 10 7 10" />
                 <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+            </button>
+            <button
+              class="fbtn hidden"
+              id="key-save"
+              aria-label="Save this key (admin)"
+              title="Save transposed key for everyone (admin)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
               </svg>
             </button>
           </div>
@@ -1341,6 +1361,22 @@
           <button class="ed-btn" id="ed-save">Save</button>
           <button class="ed-btn ghost" id="ed-delete">Delete</button>
           <span class="ed-hint">Shared with everyone (admin login required).</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN LOGIN -->
+    <div id="login" class="editor hidden">
+      <div class="editor-card" style="max-width: 380px">
+        <div class="editor-head">
+          <strong>Admin login</strong>
+          <button class="iconbtn" id="login-cancel" aria-label="Close">&times;</button>
+        </div>
+        <input id="login-email" type="email" placeholder="Email" autocomplete="username" />
+        <input id="login-pass" type="password" placeholder="Password" autocomplete="current-password" />
+        <div id="login-err" class="login-err"></div>
+        <div class="ed-actions">
+          <button class="ed-btn" id="login-go">Log in</button>
         </div>
       </div>
     </div>
