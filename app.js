@@ -102,7 +102,7 @@ const APP_NAME = "New Hope Band";
     if (!sbOn()) return;
     try {
       const r = await fetch(
-        SB_URL + "/rest/v1/songs?select=id,num,title,data,src&order=num",
+        SB_URL + "/rest/v1/songs?select=id,num,title,data,src,tags&order=num",
         { headers: sbHeaders({ Authorization: "Bearer " + (sbToken() || SB_KEY) }) },
       );
       if (!r.ok) return;
@@ -459,15 +459,22 @@ const APP_NAME = "New Hope Band";
       " " +
       versions.map((v) => plainText(v.raw)).join(" ")
     ).toLowerCase();
+    const tags = (typeof entry === "object" && entry._tags) || [];
     return {
       title,
       key: versions[0].key || "",
       versions,
       langs,
-      searchText,
+      searchText: searchText + " " + tags.join(" ").toLowerCase(),
       uid: (typeof entry === "object" && entry._uid) || null,
+      tags,
     };
   }
+  const parseTags = (s) =>
+    String(s || "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
 
   // ---- songs added in-app (stored on this device) ----
   function getUserSongs() {
@@ -485,11 +492,15 @@ const APP_NAME = "New Hope Band";
   // a Supabase row -> a SONGS entry (string data = single language, object = bilingual)
   function rowToEntry(row) {
     const uid = "g:" + (row.num != null ? row.num : row.id);
+    const tags = parseTags(row.tags);
     const d = row.data;
     if (d && typeof d === "object")
-      return Object.assign({ _uid: uid }, d, { title: row.title || d.title });
+      return Object.assign({ _uid: uid, _tags: tags }, d, {
+        title: row.title || d.title,
+      });
     return {
       _uid: uid,
+      _tags: tags,
       title: row.title || undefined,
       versions: [{ lang: "", text: String(d || "") }],
     };
@@ -583,6 +594,7 @@ const APP_NAME = "New Hope Band";
   }
   function fillEditor(f) {
     $("ed-name").value = f.name || "";
+    $("ed-tags").value = f.tags || "";
     $("ed-key").value = f.key || "";
     $("ed-lang").value = f.lang || "";
     $("ed-german").checked = !!f.german;
@@ -629,6 +641,7 @@ const APP_NAME = "New Hope Band";
           }
         }
       }
+      if (g && !f.tags) f.tags = parseTags(g.tags).join(", ");
     } else if (uid) {
       const u = getUserSongs().find((s) => s.id === uid);
       if (u) f = { ...u };
@@ -677,8 +690,9 @@ const APP_NAME = "New Hope Band";
     } else {
       data = cp1;
     }
+    const tags = parseTags($("ed-tags").value).join(", ");
     const src = JSON.stringify({
-      name, biling: !!biling,
+      name, biling: !!biling, tags,
       key: p1.key, lang: p1.lang, german: p1.german, text: p1.text,
       key2: p2.key, lang2: p2.lang, german2: p2.german, text2: p2.text,
     });
@@ -693,7 +707,7 @@ const APP_NAME = "New Hope Band";
     };
 
     if (sbOn()) {
-      const row = { title: name || null, data, src };
+      const row = { title: name || null, data, src, tags: tags || null };
       const gid = editId && editId.startsWith("g:") ? editId.slice(2) : null;
       let res = await sbWrite(row, gid);
       if (res.needLogin) {
@@ -888,18 +902,18 @@ const APP_NAME = "New Hope Band";
     if (!s) return;
     const payload = encodeURIComponent(JSON.stringify({ n: s.name, s: s.songs }));
     const url = location.origin + location.pathname + "#set=" + payload;
-    if (navigator.share) {
-      navigator.share({ title: "Set: " + s.name, url }).catch(() => {});
-    } else if (navigator.clipboard) {
-      navigator.clipboard
-        .writeText(url)
-        .then(
-          () => alert("Share link copied to clipboard."),
-          () => prompt("Copy this link:", url),
-        );
-    } else {
-      prompt("Copy this link:", url);
-    }
+    $("share-name").textContent = s.name;
+    $("share-link").value = url;
+    $("share-qr").src =
+      "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" +
+      encodeURIComponent(url);
+    $("share-native").classList.toggle("hidden", !navigator.share);
+    $("share").classList.remove("hidden");
+    document.documentElement.classList.add("noscroll");
+  }
+  function closeShare() {
+    $("share").classList.add("hidden");
+    document.documentElement.classList.remove("noscroll");
   }
   function importFromText(text) {
     let payload = (text || "").trim();
@@ -1041,6 +1055,7 @@ const APP_NAME = "New Hope Band";
 
   // ---- list ----
   let lastFilter = "";
+  let activeTag = "";
   function renderList(filter = lastFilter) {
     lastFilter = filter;
     const q = filter.trim().toLowerCase();
@@ -1054,7 +1069,12 @@ const APP_NAME = "New Hope Band";
         .filter(Boolean);
     } else {
       base = songs;
+      if (activeTag)
+        base = base.filter((s) =>
+          (s.tags || []).some((t) => t.toLowerCase() === activeTag),
+        );
     }
+    renderTagBar();
     const matches = q ? base.filter((s) => s.searchText.includes(q)) : base;
     currentMatches = matches; // swipe/next-prev follows the current view
 
@@ -1150,6 +1170,36 @@ const APP_NAME = "New Hope Band";
     listEl.appendChild(frag);
   }
 
+  // tag filter chips (All view): tap a tag to filter, tap again to clear
+  function renderTagBar() {
+    const bar = $("tag-bar");
+    if (listMode === "set") {
+      bar.classList.add("hidden");
+      return;
+    }
+    const all = new Set();
+    songs.forEach((s) => (s.tags || []).forEach((t) => all.add(t)));
+    if (!all.size) {
+      bar.classList.add("hidden");
+      return;
+    }
+    bar.classList.remove("hidden");
+    bar.innerHTML = "";
+    [...all]
+      .sort((a, b) => a.localeCompare(b))
+      .forEach((t) => {
+        const b = document.createElement("button");
+        b.className = "chip" + (activeTag === t.toLowerCase() ? " active" : "");
+        b.textContent = t;
+        b.addEventListener("click", () => {
+          const key = t.toLowerCase();
+          activeTag = activeTag === key ? "" : key;
+          renderList();
+        });
+        bar.appendChild(b);
+      });
+  }
+
   function setListMode(mode) {
     listMode = mode;
     $("tab-all").classList.toggle("active", mode === "all");
@@ -1159,6 +1209,7 @@ const APP_NAME = "New Hope Band";
     // could otherwise hide newly-added songs until a reload)
     searchEl.value = "";
     lastFilter = "";
+    activeTag = "";
     if (mode === "set") renderSetBar();
     updateSetCount();
     renderList();
@@ -1782,6 +1833,21 @@ const APP_NAME = "New Hope Band";
       renderList();
     });
     $("set-share").addEventListener("click", shareSet);
+    $("share-close").addEventListener("click", closeShare);
+    $("share").addEventListener("click", (e) => {
+      if (e.target.id === "share") closeShare();
+    });
+    $("share-copy").addEventListener("click", () => {
+      const link = $("share-link").value;
+      navigator.clipboard?.writeText(link).then(
+        () => ($("share-copy").textContent = "Copied!"),
+        () => {},
+      );
+      setTimeout(() => ($("share-copy").textContent = "Copy link"), 1500);
+    });
+    $("share-native").addEventListener("click", () => {
+      if (navigator.share) navigator.share({ url: $("share-link").value }).catch(() => {});
+    });
     $("set-import").addEventListener("click", importSetPrompt);
     // swipe anywhere (while a song is open) to move between songs
     let sx = 0,

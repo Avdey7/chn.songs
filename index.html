@@ -1017,6 +1017,38 @@
         font-size: 0.82rem;
         min-height: 1em;
       }
+      .share-card {
+        max-width: 360px;
+        text-align: center;
+      }
+      .share-qr {
+        width: 240px;
+        height: 240px;
+        align-self: center;
+        background: #fff;
+        border-radius: 12px;
+        padding: 8px;
+      }
+      .share-hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+      .tag-bar {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        margin: 0 0 12px;
+        scrollbar-width: none;
+      }
+      .tag-bar::-webkit-scrollbar {
+        display: none;
+      }
+      .tag-bar .chip.active {
+        background: var(--accent);
+        color: var(--on-accent);
+        border-color: var(--accent);
+      }
 
       /* print / save-as-PDF: only the current song, in black on white */
       /* margin:0 makes browsers drop the URL/date/page-number header & footer */
@@ -1166,12 +1198,13 @@
             </svg>
           </button>
         </div>
+        <div class="tag-bar hidden" id="tag-bar"></div>
         <div class="count" id="count"></div>
         <ul class="list" id="list"></ul>
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 10</span>
+          &middot; <span id="ver">build 11</span>
         </footer>
       </div>
 
@@ -1347,6 +1380,7 @@
         </div>
         <textarea id="ed-text" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below."></textarea>
 
+        <div class="ed-fields"><input id="ed-tags" placeholder="Tags, comma-separated (fast, communion, christmas)" /></div>
         <label class="ed-check"><input type="checkbox" id="ed-biling" /> Add a 2nd language</label>
         <div id="ed-block2" class="hidden">
           <div class="ed-fields">
@@ -1378,6 +1412,23 @@
         <div id="login-err" class="login-err"></div>
         <div class="ed-actions">
           <button class="ed-btn" id="login-go">Log in</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHARE SET -->
+    <div id="share" class="editor hidden">
+      <div class="editor-card share-card">
+        <div class="editor-head">
+          <strong>Share &ldquo;<span id="share-name"></span>&rdquo;</strong>
+          <button class="iconbtn" id="share-close" aria-label="Close">&times;</button>
+        </div>
+        <img id="share-qr" class="share-qr" alt="QR code for the set link" />
+        <p class="share-hint">Scan to open this set, or send the link:</p>
+        <input id="share-link" readonly />
+        <div class="ed-actions">
+          <button class="ed-btn" id="share-copy">Copy link</button>
+          <button class="ed-btn ghost hidden" id="share-native">Share&hellip;</button>
         </div>
       </div>
     </div>
