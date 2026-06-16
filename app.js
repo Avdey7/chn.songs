@@ -70,6 +70,7 @@ const APP_NAME = "New Hope Band";
     store.set("sb_token", "");
     store.set("sb_exp", "0");
     store.set("sb_email", "");
+    store.set("sb_refresh", "");
     updateAdminUI();
   }
   function updateAdminUI() {
@@ -120,7 +121,13 @@ const APP_NAME = "New Hope Band";
       /* offline -> keep cached copy */
     }
   }
-  async function adminLogin(email, password) {
+  function storeSession(d, email, remember) {
+    store.set("sb_token", d.access_token || "");
+    store.set("sb_exp", String(Date.now() + (d.expires_in || 3600) * 1000));
+    if (email != null) store.set("sb_email", email);
+    if (remember && d.refresh_token) store.set("sb_refresh", d.refresh_token);
+  }
+  async function adminLogin(email, password, remember) {
     try {
       const r = await fetch(SB_URL + "/auth/v1/token?grant_type=password", {
         method: "POST",
@@ -129,13 +136,39 @@ const APP_NAME = "New Hope Band";
       });
       if (!r.ok) return false;
       const d = await r.json();
-      store.set("sb_token", d.access_token || "");
-      store.set("sb_email", email || "");
-      store.set("sb_exp", String(Date.now() + (d.expires_in || 3600) * 1000));
+      if (!remember) store.set("sb_refresh", "");
+      storeSession(d, email || "", remember);
       return !!d.access_token;
     } catch {
       return false;
     }
+  }
+  // "remember me": use the stored refresh token to get a fresh access token
+  async function refreshSession() {
+    const rt = store.get("sb_refresh", "");
+    if (!rt) return false;
+    try {
+      const r = await fetch(SB_URL + "/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: sbHeaders(),
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      if (!r.ok) {
+        if (r.status === 400) store.set("sb_refresh", ""); // revoked
+        return false;
+      }
+      const d = await r.json();
+      if (!d.access_token) return false;
+      storeSession(d, null, true);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  // valid access token, refreshing first if needed
+  async function ensureAuth() {
+    if (sbToken() && Date.now() < +store.get("sb_exp", "0")) return true;
+    return await refreshSession();
   }
   // masked login dialog -> resolves true if signed in
   function promptLogin() {
@@ -156,7 +189,11 @@ const APP_NAME = "New Hope Band";
         resolve(ok);
       };
       const go = async () => {
-        const ok = await adminLogin($("login-email").value.trim(), $("login-pass").value);
+        const ok = await adminLogin(
+          $("login-email").value.trim(),
+          $("login-pass").value,
+          $("login-remember").checked,
+        );
         if (!ok) {
           $("login-err").textContent = "Wrong email or password.";
           return;
@@ -177,7 +214,7 @@ const APP_NAME = "New Hope Band";
   // short numeric ids filter by num, legacy uuids by id
   const sbFilter = (v) => (/^\d+$/.test(String(v)) ? "num=eq." : "id=eq.") + v;
   async function sbWrite(row, id) {
-    if (!sbToken()) return { needLogin: true };
+    if (!(await ensureAuth())) return { needLogin: true };
     const base = SB_URL + "/rest/v1/songs";
     const opts = {
       headers: sbHeaders({
@@ -196,7 +233,7 @@ const APP_NAME = "New Hope Band";
     return { ok: r.ok };
   }
   async function sbDelete(id) {
-    if (!sbToken()) return { needLogin: true };
+    if (!(await ensureAuth())) return { needLogin: true };
     const r = await fetch(SB_URL + "/rest/v1/songs?" + sbFilter(id), {
       method: "DELETE",
       headers: sbHeaders({ Authorization: "Bearer " + sbToken() }),
@@ -1634,6 +1671,7 @@ const APP_NAME = "New Hope Band";
     renderList();
     if (!imported) restoreOpen(); // reopen the song that was open before refresh
     refreshGlobal(); // pull the shared catalog (updates the list when it arrives)
+    if (!loggedIn()) refreshSession().then((ok) => ok && updateAdminUI()); // remember-me
     const sysLight =
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: light)").matches;
