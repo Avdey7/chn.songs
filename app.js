@@ -98,13 +98,17 @@ const APP_NAME = "New Hope Band";
       return [];
     }
   }
+  let hasPrevCol = false; // does the songs table have the 'prev' column yet?
   async function refreshGlobal() {
     if (!sbOn()) return;
     try {
-      const r = await fetch(
-        SB_URL + "/rest/v1/songs?select=id,num,title,data,src,tags&order=num",
-        { headers: sbHeaders({ Authorization: "Bearer " + (sbToken() || SB_KEY) }) },
-      );
+      const hdr = { headers: sbHeaders({ Authorization: "Bearer " + (sbToken() || SB_KEY) }) };
+      const base = SB_URL + "/rest/v1/songs?order=num&select=";
+      // include newer columns, but fall back if they don't exist yet
+      let r = await fetch(base + "id,num,title,data,src,tags,prev", hdr);
+      hasPrevCol = r.ok;
+      if (!r.ok) r = await fetch(base + "id,num,title,data,src,tags", hdr);
+      if (!r.ok) r = await fetch(base + "id,num,title,data,src", hdr);
       if (!r.ok) return;
       store.set("globalsongs", JSON.stringify(await r.json()));
       const openId =
@@ -649,13 +653,25 @@ const APP_NAME = "New Hope Band";
     fillEditor(f);
     $("editor-title").textContent = uid ? "Edit song" : "Add a song";
     $("ed-delete").classList.toggle("hidden", !uid);
+    const gr =
+      uid && uid.startsWith("g:")
+        ? getGlobalCache().find(
+            (x) => "g:" + (x.num != null ? x.num : x.id) === uid,
+          )
+        : null;
+    $("ed-restore").classList.toggle("hidden", !(gr && gr.prev != null));
     updateAdminUI();
     $("editor").classList.remove("hidden");
     document.documentElement.classList.add("noscroll");
+    history.pushState({ ed: 1 }, ""); // back gesture closes the editor, not the song
   }
-  function closeEditor() {
+  function closeEditorUI() {
     $("editor").classList.add("hidden");
     document.documentElement.classList.remove("noscroll");
+  }
+  function closeEditor() {
+    if (!$("editor").classList.contains("hidden")) history.back();
+    else closeEditorUI();
   }
   async function saveEditor() {
     const name = $("ed-name").value.trim();
@@ -707,8 +723,15 @@ const APP_NAME = "New Hope Band";
     };
 
     if (sbOn()) {
-      const row = { title: name || null, data, src, tags: tags || null };
       const gid = editId && editId.startsWith("g:") ? editId.slice(2) : null;
+      const row = { title: name || null, data, src, tags: tags || null };
+      // keep the version before this edit, so it can be restored
+      if (gid && hasPrevCol) {
+        const g = getGlobalCache().find(
+          (x) => "g:" + (x.num != null ? x.num : x.id) === editId,
+        );
+        if (g) row.prev = g.data;
+      }
       let res = await sbWrite(row, gid);
       if (res.needLogin) {
         if (!(await promptLogin())) return;
@@ -778,8 +801,33 @@ const APP_NAME = "New Hope Band";
       build();
       renderList();
     }
+    closeEditorUI();
+    history.go(wasOpen ? -2 : -1); // pop the editor (and song) history entries
+  }
+  // restore the version saved before the last edit (swaps current <-> previous)
+  async function restorePrev() {
+    if (!editId || !editId.startsWith("g:")) return;
+    const g = getGlobalCache().find(
+      (x) => "g:" + (x.num != null ? x.num : x.id) === editId,
+    );
+    if (!g || g.prev == null) return;
+    if (!confirm("Restore the previous version? (You can switch back again.)"))
+      return;
+    const gid = editId.slice(2);
+    const payload = { data: g.prev, prev: g.data, src: null };
+    let res = await sbWrite(payload, gid);
+    if (res.needLogin) {
+      if (!(await promptLogin())) return;
+      res = await sbWrite(payload, gid);
+    }
+    if (!res.ok) {
+      alert("Couldn't restore. Check your connection / admin login.");
+      return;
+    }
+    const uid = editId;
+    await refreshGlobal();
     closeEditor();
-    if (wasOpen) history.back();
+    rerenderOpen(uid);
   }
 
   // ---- named sets (one per service) ---------------------------------------
@@ -1056,6 +1104,30 @@ const APP_NAME = "New Hope Band";
   // ---- list ----
   let lastFilter = "";
   let activeTag = "";
+  let favOnly = false;
+  // ---- favorites (per device) ----
+  function getFavs() {
+    try {
+      const a = JSON.parse(store.get("favs", "[]"));
+      return Array.isArray(a) ? a : [];
+    } catch {
+      return [];
+    }
+  }
+  function favHas(t) {
+    return getFavs().includes(t);
+  }
+  function favToggle(t) {
+    const a = getFavs();
+    const i = a.indexOf(t);
+    if (i >= 0) a.splice(i, 1);
+    else a.push(t);
+    store.set("favs", JSON.stringify(a));
+  }
+  function updateFavBtn() {
+    if (current === null) return;
+    $("fav-btn").classList.toggle("on", favHas(songs[current].title));
+  }
   function renderList(filter = lastFilter) {
     lastFilter = filter;
     const q = filter.trim().toLowerCase();
@@ -1069,6 +1141,7 @@ const APP_NAME = "New Hope Band";
         .filter(Boolean);
     } else {
       base = songs;
+      if (favOnly) base = base.filter((s) => favHas(s.title));
       if (activeTag)
         base = base.filter((s) =>
           (s.tags || []).some((t) => t.toLowerCase() === activeTag),
@@ -1179,12 +1252,23 @@ const APP_NAME = "New Hope Band";
     }
     const all = new Set();
     songs.forEach((s) => (s.tags || []).forEach((t) => all.add(t)));
-    if (!all.size) {
+    const hasFavs = getFavs().length > 0;
+    if (!all.size && !hasFavs) {
       bar.classList.add("hidden");
       return;
     }
     bar.classList.remove("hidden");
     bar.innerHTML = "";
+    if (hasFavs) {
+      const fb = document.createElement("button");
+      fb.className = "chip" + (favOnly ? " active" : "");
+      fb.textContent = "★ Favorites";
+      fb.addEventListener("click", () => {
+        favOnly = !favOnly;
+        renderList();
+      });
+      bar.appendChild(fb);
+    }
     [...all]
       .sort((a, b) => a.localeCompare(b))
       .forEach((t) => {
@@ -1211,6 +1295,7 @@ const APP_NAME = "New Hope Band";
     searchEl.value = "";
     lastFilter = "";
     activeTag = "";
+    favOnly = false;
     if (mode === "set") renderSetBar();
     updateSetCount();
     renderList();
@@ -1411,6 +1496,7 @@ const APP_NAME = "New Hope Band";
     renderTabs();
     renderSheet();
     updateSetBtn();
+    updateFavBtn();
     $("edit-btn").classList.toggle("hidden", !songs[i].uid);
     listView.classList.add("hidden");
     songView.classList.remove("hidden");
@@ -1425,6 +1511,7 @@ const APP_NAME = "New Hope Band";
 
   function closeSong() {
     store.set("opensong", "");
+    document.documentElement.classList.remove("stage");
     stopScroll();
     releaseWakeLock();
     current = null;
@@ -1782,6 +1869,16 @@ const APP_NAME = "New Hope Band";
         openEditor(songs[current].uid);
       }
     });
+    $("stage-btn").addEventListener("click", () => {
+      document.documentElement.classList.toggle("stage");
+      closeControls();
+    });
+    $("fav-btn").addEventListener("click", () => {
+      if (current === null) return;
+      favToggle(songs[current].title);
+      updateFavBtn();
+    });
+    $("ed-restore").addEventListener("click", restorePrev);
     $("chords-btn").addEventListener("click", toggleChords);
     $("set-btn").addEventListener("click", toggleSet);
     $("fab").addEventListener("click", toggleControls);
@@ -1921,6 +2018,10 @@ const APP_NAME = "New Hope Band";
       store.set("scrollspeed", String(scrollSpeed));
     });
     window.addEventListener("popstate", () => {
+      if (!$("editor").classList.contains("hidden")) {
+        closeEditorUI();
+        return;
+      }
       if (current !== null) closeSong();
     });
   }

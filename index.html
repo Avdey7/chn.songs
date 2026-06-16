@@ -1064,6 +1064,29 @@
         color: var(--on-accent);
         border-color: var(--accent);
       }
+      /* favorite star (active) */
+      #fav-btn.on {
+        color: #f5b301;
+        border-color: #f5b301;
+      }
+      #fav-btn.on svg {
+        fill: #f5b301;
+      }
+      /* stage mode: big text, minimal chrome */
+      html.stage #song-view header,
+      html.stage .keyline,
+      html.stage #progress {
+        display: none !important;
+      }
+      html.stage .sheet {
+        font-size: calc(var(--sheet-size, 1rem) * 1.5);
+        padding-top: calc(env(safe-area-inset-top) + 6px);
+      }
+      html.stage #stage-btn {
+        background: var(--accent);
+        color: var(--on-accent);
+        border-color: var(--accent);
+      }
 
       /* print / save-as-PDF: only the current song, in black on white */
       /* margin:0 makes browsers drop the URL/date/page-number header & footer */
@@ -1219,7 +1242,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 13</span>
+          &middot; <span id="ver">build 14</span>
         </footer>
       </div>
 
@@ -1232,6 +1255,11 @@
                 <polyline points="15 18 9 12 15 6" />
               </svg>
               <span>Songs</span>
+            </button>
+            <button class="iconbtn" id="fav-btn" aria-label="Favorite" title="Favorite">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15 9 22 9.3 17 14 18.5 21 12 17.3 5.5 21 7 14 2 9.3 9 9" />
+              </svg>
             </button>
           </div>
         </header>
@@ -1352,6 +1380,18 @@
               <span>Edit</span>
             </button>
           </div>
+
+          <div class="fab-row">
+            <button class="fbtn flex" id="stage-btn" aria-label="Stage mode" title="Big text, minimal screen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+              <span>Stage</span>
+            </button>
+          </div>
         </div>
 
         <button class="fab" id="fab" aria-label="Open controls">
@@ -1390,6 +1430,7 @@
           <span id="ed-status">Not signed in</span>
           <button class="ed-link" id="ed-login">Log in</button>
           <button class="ed-link hidden" id="ed-logout">Log out</button>
+          <button class="ed-link hidden" id="ed-restore" title="Undo to the previous saved version">&#8634; Restore previous</button>
         </div>
         <div class="ed-fields">
           <input id="ed-name" placeholder="Song title" />
