@@ -970,7 +970,7 @@ const APP_NAME = "New Hope Band";
     sets.forEach((s) => {
       const o = document.createElement("option");
       o.value = s.id;
-      o.textContent = s.name + " (" + s.songs.length + ")";
+      o.textContent = s.name;
       if (s.id === activeSetId) o.selected = true;
       sel.appendChild(o);
     });
@@ -1202,6 +1202,7 @@ const APP_NAME = "New Hope Band";
 
   function setListMode(mode) {
     listMode = mode;
+    store.set("listmode", mode); // remembered across refresh
     $("tab-all").classList.toggle("active", mode === "all");
     $("tab-set").classList.toggle("active", mode === "set");
     $("set-bar").classList.toggle("hidden", mode !== "set");
@@ -1719,7 +1720,8 @@ const APP_NAME = "New Hope Band";
     build();
     initSets();
     const imported = checkHashImport();
-    renderList();
+    // restore the tab you were on (All/Set); a shared link forces the Set tab
+    setListMode(imported ? "set" : store.get("listmode", "all"));
     if (!imported) restoreOpen(); // reopen the song that was open before refresh
     refreshGlobal(); // pull the shared catalog (updates the list when it arrives)
     if (!loggedIn()) refreshSession().then((ok) => ok && updateAdminUI()); // remember-me
@@ -1730,7 +1732,6 @@ const APP_NAME = "New Hope Band";
     applySize();
     applyChords();
     updateSetCount();
-    if (imported) setListMode("set");
 
     searchEl.addEventListener("input", (e) => renderList(e.target.value));
     $("theme-btn").addEventListener("click", () =>

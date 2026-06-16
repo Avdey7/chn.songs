@@ -906,9 +906,28 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 8px;
       }
       .editor-head strong {
         font-size: 1.1rem;
+      }
+      /* keep title + Save/Delete pinned at the top while the editor scrolls */
+      .editor-head-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: var(--bg);
+        padding: 4px 0 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .ed-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ed-head-actions .ed-btn {
+        padding: 8px 14px;
+        margin: 0;
       }
       .ed-admin {
         display: flex;
@@ -1151,14 +1170,14 @@
               autocomplete="off"
             />
           </div>
+          <div class="list-tabs">
+            <button class="seg active" id="tab-all">All songs</button>
+            <button class="seg" id="tab-set">
+              Set <span class="seg-badge" id="set-count">0</span>
+            </button>
+            <button class="seg-clear hidden" id="set-clear">Clear set</button>
+          </div>
         </header>
-        <div class="list-tabs">
-          <button class="seg active" id="tab-all">All songs</button>
-          <button class="seg" id="tab-set">
-            Set <span class="seg-badge" id="set-count">0</span>
-          </button>
-          <button class="seg-clear hidden" id="set-clear">Clear set</button>
-        </div>
         <div class="set-bar hidden" id="set-bar">
           <select id="set-select" aria-label="Choose set"></select>
           <button class="setbtn" id="set-new" title="New set" aria-label="New set">
@@ -1204,7 +1223,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 11</span>
+          &middot; <span id="ver">build 12</span>
         </footer>
       </div>
 
@@ -1362,9 +1381,13 @@
     <!-- ADD / EDIT SONG OVERLAY -->
     <div id="editor" class="editor hidden">
       <div class="editor-card">
-        <div class="editor-head">
+        <div class="editor-head editor-head-sticky">
           <strong id="editor-title">Add a song</strong>
-          <button class="iconbtn" id="ed-close" aria-label="Close">&times;</button>
+          <div class="ed-head-actions">
+            <button class="ed-btn" id="ed-save">Save</button>
+            <button class="ed-btn ghost" id="ed-delete">Delete</button>
+            <button class="iconbtn" id="ed-close" aria-label="Close">&times;</button>
+          </div>
         </div>
         <div class="ed-admin" id="ed-admin">
           <span class="ed-dot"></span>
@@ -1390,12 +1413,7 @@
           </div>
           <textarea id="ed-text2" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below."></textarea>
         </div>
-
-        <div class="ed-actions">
-          <button class="ed-btn" id="ed-save">Save</button>
-          <button class="ed-btn ghost" id="ed-delete">Delete</button>
-          <span class="ed-hint">Shared with everyone (admin login required).</span>
-        </div>
+        <p class="ed-hint">Shared with everyone (admin login required).</p>
       </div>
     </div>
 
