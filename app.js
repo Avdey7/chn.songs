@@ -804,30 +804,37 @@ const APP_NAME = "New Hope Band";
     closeEditorUI();
     history.go(wasOpen ? -2 : -1); // pop the editor (and song) history entries
   }
-  // restore the version saved before the last edit (swaps current <-> previous)
-  async function restorePrev() {
+  // load the previous version INTO the editor so you can see it before applying
+  // (then Save commits it; the current version becomes the new "previous")
+  function restorePrev() {
     if (!editId || !editId.startsWith("g:")) return;
     const g = getGlobalCache().find(
       (x) => "g:" + (x.num != null ? x.num : x.id) === editId,
     );
     if (!g || g.prev == null) return;
-    if (!confirm("Restore the previous version? (You can switch back again.)"))
-      return;
-    const gid = editId.slice(2);
-    const payload = { data: g.prev, prev: g.data, src: null };
-    let res = await sbWrite(payload, gid);
-    if (res.needLogin) {
-      if (!(await promptLogin())) return;
-      res = await sbWrite(payload, gid);
+    const d = g.prev;
+    const f = { name: $("ed-name").value, tags: $("ed-tags").value };
+    if (typeof d === "string") {
+      const s = chordproToSheet(d);
+      f.name = f.name || s.name;
+      f.key = s.key;
+      f.text = s.text;
+    } else if (d && d.versions) {
+      const v = d.versions;
+      const s1 = chordproToSheet(v[0] ? v[0].text : "");
+      f.lang = v[0] ? v[0].lang : "";
+      f.key = s1.key;
+      f.text = s1.text;
+      if (v[1]) {
+        const s2 = chordproToSheet(v[1].text || "");
+        f.biling = true;
+        f.lang2 = v[1].lang || "";
+        f.key2 = s2.key;
+        f.text2 = s2.text;
+      }
     }
-    if (!res.ok) {
-      alert("Couldn't restore. Check your connection / admin login.");
-      return;
-    }
-    const uid = editId;
-    await refreshGlobal();
-    closeEditor();
-    rerenderOpen(uid);
+    fillEditor(f);
+    alert("Loaded the previous version. Review it, then Save to apply.");
   }
 
   // ---- named sets (one per service) ---------------------------------------
@@ -1189,6 +1196,18 @@ const APP_NAME = "New Hope Band";
         li.appendChild(k);
       }
       if (listMode !== "set") {
+        const fav = document.createElement("button");
+        fav.className = "row-fav" + (favHas(s.title) ? " on" : "");
+        fav.innerHTML = ICON_STAR;
+        fav.setAttribute("aria-label", "Favorite");
+        fav.addEventListener("pointerdown", (e) => e.preventDefault());
+        fav.addEventListener("click", (e) => {
+          e.stopPropagation();
+          favToggle(s.title);
+          fav.classList.toggle("on", favHas(s.title));
+          renderTagBar();
+        });
+        li.appendChild(fav);
         const add = document.createElement("button");
         const inSet = setHas(s.title);
         add.className = "row-add" + (inSet ? " in" : "");
@@ -1412,6 +1431,8 @@ const APP_NAME = "New Hope Band";
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
   const ICON_CHECK =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ICON_STAR =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.3 17 14 18.5 21 12 17.3 5.5 21 7 14 2 9.3 9 9"/></svg>';
 
   // ---- section chips: jump-to from each {comment: ...} label ----
   function buildChips() {
@@ -1879,6 +1900,19 @@ const APP_NAME = "New Hope Band";
       updateFavBtn();
     });
     $("ed-restore").addEventListener("click", restorePrev);
+    // back-to-top (list view only)
+    const totop = $("totop");
+    totop.addEventListener("click", () =>
+      window.scrollTo({ top: 0, behavior: "smooth" }),
+    );
+    window.addEventListener(
+      "scroll",
+      () => {
+        const show = current === null && window.scrollY > 400;
+        totop.classList.toggle("hidden", !show);
+      },
+      { passive: true },
+    );
     $("chords-btn").addEventListener("click", toggleChords);
     $("set-btn").addEventListener("click", toggleSet);
     $("fab").addEventListener("click", toggleControls);

@@ -155,8 +155,20 @@
         top: 0;
         z-index: 20;
         padding-top: env(safe-area-inset-top);
-        background: linear-gradient(var(--bg) 75%, transparent);
-        backdrop-filter: blur(6px);
+        padding-bottom: 10px;
+        background: linear-gradient(var(--bg) 70%, transparent);
+        backdrop-filter: blur(8px);
+        /* fade the blur out at the bottom so the edge isn't sharp */
+        -webkit-mask-image: linear-gradient(
+          to bottom,
+          #000 calc(100% - 18px),
+          transparent
+        );
+        mask-image: linear-gradient(
+          to bottom,
+          #000 calc(100% - 18px),
+          transparent
+        );
       }
       .bar {
         display: flex;
@@ -674,6 +686,49 @@
         width: 16px;
         height: 16px;
       }
+      .totop {
+        position: fixed;
+        right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom, 0));
+        z-index: 35;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        opacity: 0.85;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+      }
+      .totop svg {
+        width: 18px;
+        height: 18px;
+      }
+      .row-fav {
+        appearance: none;
+        flex: none;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .row-fav svg {
+        width: 16px;
+        height: 16px;
+      }
+      .row-fav.on {
+        color: #f5b301;
+        border-color: #f5b301;
+      }
+      .row-fav.on svg {
+        fill: #f5b301;
+      }
 
       /* set-mode row tools: move up / down / remove */
       .row-tools {
@@ -950,7 +1005,29 @@
         font-weight: 600;
         cursor: pointer;
         padding: 2px 4px;
+      }
+      .ed-admin-actions {
         margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+      }
+      .ed-icon {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+      }
+      .ed-icon svg {
+        width: 16px;
+        height: 16px;
       }
       .ed-fields {
         display: flex;
@@ -1149,6 +1226,11 @@
   </head>
   <body>
     <div id="progress" class="hidden"><div id="progress-fill"></div></div>
+    <button id="totop" class="totop hidden" aria-label="Back to top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 14 12 8 18 14" />
+      </svg>
+    </button>
     <div id="app">
       <!-- LIST VIEW -->
       <div id="list-view">
@@ -1242,7 +1324,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 14</span>
+          &middot; <span id="ver">build 15</span>
         </footer>
       </div>
 
@@ -1428,9 +1510,15 @@
         <div class="ed-admin" id="ed-admin">
           <span class="ed-dot"></span>
           <span id="ed-status">Not signed in</span>
-          <button class="ed-link" id="ed-login">Log in</button>
-          <button class="ed-link hidden" id="ed-logout">Log out</button>
-          <button class="ed-link hidden" id="ed-restore" title="Undo to the previous saved version">&#8634; Restore previous</button>
+          <span class="ed-admin-actions">
+            <button class="ed-link" id="ed-login">Log in</button>
+            <button class="ed-icon hidden" id="ed-restore" title="Restore previous version" aria-label="Restore previous version">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            </button>
+            <button class="ed-icon hidden" id="ed-logout" title="Log out" aria-label="Log out">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
+          </span>
         </div>
         <div class="ed-fields">
           <input id="ed-name" placeholder="Song title" />
