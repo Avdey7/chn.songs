@@ -10,7 +10,7 @@
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#0d0e12" />
+    <meta name="theme-color" content="#f6f7fb" />
     <meta name="color-scheme" content="light dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -22,17 +22,39 @@
     <link rel="apple-touch-icon" href="icons/icon-180.png" />
     <link rel="icon" href="icons/icon-192.png" />
 
-    <!-- Fonts: Inter for a clean modern UI + body, JetBrains Mono for chords -->
+    <!-- Fonts: Hanken Grotesk for UI + body, JetBrains Mono for chords -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
 
     <style>
       :root {
-        /* Dark — derived from the logo: cool near-black + periwinkle accent */
+        /* Light is primary — cool off-white + deep indigo accent */
+        --bg: #f6f7fb;
+        --bg-grad: #eceef6;
+        --surface: #ffffff;
+        --surface-2: #eff1f7;
+        --border: #e5e8f0;
+        --text: #16181f;
+        --muted: #6a7080;
+        --accent: #4f46e5; /* chords: indigo */
+        --accent-dim: #4338ca;
+        --accent-soft: rgba(79, 70, 229, 0.07);
+        --on-accent: #ffffff;
+        --chorus: var(--accent-soft);
+        --shadow: 0 1px 2px rgba(20, 24, 40, 0.05);
+        --shadow-lg: 0 12px 36px rgba(20, 24, 40, 0.16);
+        --radius: 14px;
+        --maxw: 820px;
+        --t-fast: 0.12s;
+        --t-med: 0.2s;
+        --ease: cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      [data-theme="dark"] {
+        /* Dark — cool near-black + periwinkle accent (stage / low light) */
         --bg: #0d0e12;
         --bg-grad: #15171f;
         --surface: #15171e;
@@ -40,31 +62,13 @@
         --border: #262a36;
         --text: #e9ebf2;
         --muted: #8b91a3;
-        --accent: #aab6f7; /* chords: soft periwinkle */
+        --accent: #aab6f7;
         --accent-dim: #7e8ce0;
         --accent-soft: rgba(143, 156, 240, 0.13);
-        --on-accent: #11131c; /* text on an accent-filled surface */
+        --on-accent: #11131c;
         --chorus: var(--accent-soft);
-        --radius: 14px;
-        --maxw: 760px;
-        --t-fast: 0.12s;
-        --t-med: 0.2s;
-        --ease: cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      [data-theme="light"] {
-        /* Light — cool off-white + deep indigo accent */
-        --bg: #f6f7fb;
-        --bg-grad: #eceef6;
-        --surface: #ffffff;
-        --surface-2: #eef0f6;
-        --border: #e3e6ef;
-        --text: #1a1c24;
-        --muted: #666c7d;
-        --accent: #4f46e5; /* chords: indigo */
-        --accent-dim: #4338ca;
-        --accent-soft: rgba(79, 70, 229, 0.07);
-        --on-accent: #ffffff;
-        --chorus: var(--accent-soft);
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.45);
       }
 
       * {
@@ -135,7 +139,7 @@
           var(--bg);
         color: var(--text);
         font-family:
-          "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+          "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         -webkit-font-smoothing: antialiased;
         line-height: 1.5;
         overscroll-behavior-y: none;
@@ -174,13 +178,14 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 14px 0 10px;
+        padding: 18px 0 8px;
       }
       .brand {
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-weight: 800;
-        font-size: 1.3rem;
-        letter-spacing: -0.02em;
+        font-size: 1.6rem;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
         margin: 0;
         flex: 1;
         cursor: pointer;
@@ -211,90 +216,159 @@
 
       .search-wrap {
         position: relative;
-        padding-bottom: 12px;
+        padding-bottom: 14px;
       }
       #search {
         width: 100%;
-        padding: 12px 14px 12px 40px;
-        font-size: 1rem;
+        padding: 14px 16px 14px 46px;
+        font-size: 1.05rem;
         font-family: inherit;
         color: var(--text);
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 12px;
+        border-radius: 14px;
+        box-shadow: var(--shadow);
         outline: none;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+      }
+      #search::placeholder {
+        color: var(--muted);
       }
       #search:focus {
-        border-color: var(--accent-dim);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
       }
       .search-wrap svg {
         position: absolute;
-        left: 13px;
-        top: 13px;
+        left: 16px;
+        top: 15px;
         opacity: 0.5;
       }
 
-      /* ---------- song list ---------- */
+      /* ---------- song list (editorial index) ---------- */
       .count {
         color: var(--muted);
-        font-size: 0.8rem;
-        letter-spacing: 0.08em;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        margin: 4px 2px 10px;
+        font-weight: 600;
+        margin: 6px 4px 10px;
       }
       ul.list {
         list-style: none;
-        margin: 0;
-        padding: 0 0 40px;
+        margin: 0 auto 48px;
+        padding: 0;
+        max-width: 760px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        counter-reset: songidx;
       }
       ul.list li {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 14px;
-        border: 1px solid var(--border);
-        background: var(--surface);
-        border-radius: 12px;
-        margin-bottom: 9px;
+        gap: 14px;
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--border);
         cursor: pointer;
-        transition:
-          transform 0.08s ease,
-          border-color 0.15s ease;
+        transition: background 0.12s ease;
       }
-      ul.list li:active {
-        transform: scale(0.99);
+      ul.list li:first-child {
+        border-top-left-radius: 15px;
+        border-top-right-radius: 15px;
+      }
+      ul.list li:last-child {
+        border-bottom: none;
+        border-bottom-left-radius: 15px;
+        border-bottom-right-radius: 15px;
       }
       ul.list li:hover {
-        border-color: var(--accent-dim);
+        background: var(--accent-soft);
+      }
+      ul.list li:active {
+        background: var(--surface-2);
+      }
+      /* leading index number — position in the current view */
+      ul.list li::before {
+        counter-increment: songidx;
+        content: counter(songidx, decimal-leading-zero);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: var(--muted);
+        opacity: 0.55;
+        min-width: 22px;
+        text-align: right;
+        flex: none;
+      }
+      .row-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
       }
       .song-title {
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-weight: 600;
-        font-size: 1.08rem;
+        font-size: 1.04rem;
         letter-spacing: -0.01em;
-        flex: 1;
-        min-width: 0; /* let long titles shrink instead of pushing buttons off */
+        color: var(--text);
+        line-height: 1.25;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
-      .song-key {
-        font-family: "JetBrains Mono", monospace;
-        font-weight: 700;
-        font-size: 0.78rem;
-        color: var(--accent);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        padding: 3px 8px;
-        white-space: nowrap;
+      .row-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
       }
       .song-langs {
         font-family: "JetBrains Mono", monospace;
         font-weight: 700;
+        font-size: 0.64rem;
+        letter-spacing: 0.04em;
+        color: var(--accent-dim);
+      }
+      .song-tag {
         font-size: 0.68rem;
+        font-weight: 500;
         color: var(--muted);
-        border: 1px solid var(--border);
+        background: var(--surface-2);
+        border-radius: 999px;
+        padding: 1px 9px;
+      }
+      .song-key {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: 0.74rem;
+        color: var(--accent);
+        background: var(--accent-soft);
         border-radius: 7px;
-        padding: 3px 7px;
+        padding: 4px 9px;
         white-space: nowrap;
-        letter-spacing: 0.03em;
+        flex: none;
+      }
+      /* on pointer devices the row actions reveal on hover to cut clutter;
+         favorited / in-set rows always show their state */
+      @media (hover: hover) {
+        .row-fav,
+        .row-add {
+          opacity: 0;
+          transition: opacity 0.12s ease;
+        }
+        ul.list li:hover .row-fav,
+        ul.list li:hover .row-add,
+        .row-fav.on,
+        .row-add.in {
+          opacity: 1;
+        }
       }
 
       /* language tabs (only shown for multi-language songs) */
@@ -307,7 +381,7 @@
       .lang-tab {
         appearance: none;
         cursor: pointer;
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-weight: 600;
         font-size: 0.9rem;
         padding: 7px 16px;
@@ -358,7 +432,7 @@
         border: 1px solid var(--border);
         background: var(--surface);
         color: var(--text);
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-weight: 600;
         font-size: 0.9rem;
         cursor: pointer;
@@ -375,7 +449,7 @@
         height: 18px;
       }
       .song-view h1 {
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-weight: 800;
         font-size: 1.75rem;
         margin: 2px 0 6px;
@@ -644,7 +718,7 @@
         flex: none;
         appearance: none;
         cursor: pointer;
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-weight: 600;
         font-size: 0.76rem;
         padding: 5px 12px;
@@ -782,7 +856,7 @@
       .seg {
         appearance: none;
         cursor: pointer;
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-weight: 600;
         font-size: 0.85rem;
         padding: 7px 14px;
@@ -821,7 +895,7 @@
         appearance: none;
         cursor: pointer;
         margin-left: auto;
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-size: 0.8rem;
         color: var(--muted);
         background: none;
@@ -835,13 +909,18 @@
       .set-bar {
         display: flex;
         align-items: center;
-        gap: 6px;
-        margin: 0 0 12px;
+        gap: 8px;
+        margin: 0 0 14px;
+        padding: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
       }
       #set-select {
         flex: 1;
         min-width: 0;
-        font-family: "Inter", sans-serif;
+        font-family: "Hanken Grotesk", sans-serif;
         font-size: 0.9rem;
         color: var(--text);
         background: var(--surface);
@@ -862,11 +941,15 @@
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--text);
-        font-size: 1rem;
+        font-family: "Hanken Grotesk", sans-serif;
+        font-size: 0.84rem;
+        font-weight: 600;
         line-height: 1;
         cursor: pointer;
-        display: grid;
-        place-items: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
       }
       .setbtn:active {
         background: var(--accent);
@@ -937,7 +1020,9 @@
         position: fixed;
         inset: 0;
         z-index: 60;
-        background: rgba(0, 0, 0, 0.55);
+        background: rgba(16, 18, 27, 0.5);
+        -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: blur(3px);
         display: grid;
         place-items: end center;
         padding: 0;
@@ -946,29 +1031,49 @@
       .editor-card {
         overscroll-behavior: contain;
         width: 100%;
-        max-width: var(--maxw);
+        max-width: 720px;
         max-height: 96vh;
         overflow-y: auto;
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: 18px 18px 0 0;
-        padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0));
+        box-shadow: var(--shadow-lg);
+        padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0));
         display: flex;
         flex-direction: column;
         gap: 10px;
+      }
+      /* on a laptop the editor is a centered modal, not a bottom sheet */
+      @media (min-width: 680px) {
+        .editor {
+          place-items: center;
+          padding: 28px;
+        }
+        .editor-card {
+          border-radius: 18px;
+          max-height: 90vh;
+        }
       }
       .editor-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+        padding-top: 14px;
       }
       .editor-head strong {
         font-size: 1.1rem;
       }
       /* title + Save/Delete sit at the top of the editor (not sticky) */
+      /* keep the title + Save/Delete/Close pinned to the top while the body
+         scrolls (fixes the buttons scrolling out of reach in a long song) */
       .editor-head-sticky {
-        padding-bottom: 8px;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--bg);
+        margin: 0 -16px 8px;
+        padding: 14px 16px;
         border-bottom: 1px solid var(--border);
       }
       .ed-head-actions {
@@ -1165,6 +1270,47 @@
         border-color: var(--accent);
       }
 
+      /* ---------- laptop / wide layout ---------- */
+      @media (min-width: 760px) {
+        :root {
+          --maxw: 1120px;
+        }
+        #app {
+          padding: 0 28px;
+        }
+        .brand {
+          font-size: 1.75rem;
+        }
+        /* center the list column so header + search + rows line up */
+        #list-view {
+          max-width: 760px;
+          margin: 0 auto;
+        }
+        /* the set toolbar reads as a labelled "set manager" on wider screens */
+        .set-bar {
+          flex-wrap: wrap;
+        }
+        .set-bar .setbtn {
+          width: auto;
+          padding: 0 13px;
+        }
+        #set-new::after {
+          content: "New";
+        }
+        #set-rename::after {
+          content: "Rename";
+        }
+        #set-delete::after {
+          content: "Delete";
+        }
+        #set-share::after {
+          content: "Share";
+        }
+        #set-import::after {
+          content: "Import";
+        }
+      }
+
       /* print / save-as-PDF: only the current song, in black on white */
       /* margin:0 makes browsers drop the URL/date/page-number header & footer */
       @page {
@@ -1324,7 +1470,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 15</span>
+          &middot; <span id="ver">build 16</span>
         </footer>
       </div>
 

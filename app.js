@@ -1179,16 +1179,29 @@ const APP_NAME = "New Hope Band";
     const frag = document.createDocumentFragment();
     matches.forEach((s) => {
       const li = document.createElement("li");
+      const main = document.createElement("div");
+      main.className = "row-main";
       const t = document.createElement("span");
       t.className = "song-title";
       t.textContent = s.title;
-      li.appendChild(t);
+      main.appendChild(t);
+      // meta line under the title: language(s) + tags
+      const meta = document.createElement("span");
+      meta.className = "row-meta";
       if (s.langs.length > 1) {
         const lb = document.createElement("span");
         lb.className = "song-langs";
         lb.textContent = s.langs.map(abbr).join(" \u00B7 ");
-        li.appendChild(lb);
+        meta.appendChild(lb);
       }
+      (s.tags || []).forEach((tg) => {
+        const tagEl = document.createElement("span");
+        tagEl.className = "song-tag";
+        tagEl.textContent = tg;
+        meta.appendChild(tagEl);
+      });
+      if (meta.childNodes.length) main.appendChild(meta);
+      li.appendChild(main);
       if (s.key) {
         const k = document.createElement("span");
         k.className = "song-key";
@@ -1309,6 +1322,8 @@ const APP_NAME = "New Hope Band";
     $("tab-all").classList.toggle("active", mode === "all");
     $("tab-set").classList.toggle("active", mode === "set");
     $("set-bar").classList.toggle("hidden", mode !== "set");
+    // single-column list (no grid) in Set mode so drag-to-reorder is clear
+    document.documentElement.classList.toggle("mode-set", mode === "set");
     // clear any leftover search so the tab shows its full list (a stale filter
     // could otherwise hide newly-added songs until a reload)
     searchEl.value = "";
@@ -1836,7 +1851,7 @@ const APP_NAME = "New Hope Band";
     const sysLight =
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: light)").matches;
-    applyTheme(store.get("theme", sysLight ? "light" : "dark"));
+    applyTheme(store.get("theme", "light"));
     applySize();
     applyChords();
     updateSetCount();
