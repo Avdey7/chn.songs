@@ -1688,12 +1688,10 @@ const APP_NAME = "New Hope Band";
     if (!btn || current === null) return;
     const inSet = setHas(songs[current].title);
     btn.classList.toggle("on", inSet);
-    btn.innerHTML =
-      (inSet ? ICON_CHECK : ICON_PLUS) +
-      "<span>" +
-      (inSet ? "In set" : "Set") +
-      "</span>";
-    btn.title = inSet ? "In set" : "Add to set";
+    // header icon-only toggle (mirrors the favorite star)
+    btn.innerHTML = inSet ? ICON_CHECK : ICON_PLUS;
+    btn.title = inSet ? "In set — tap to remove" : "Add to set";
+    btn.setAttribute("aria-label", btn.title);
   }
   function toggleSet() {
     if (current === null) return;
