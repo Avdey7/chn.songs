@@ -1114,27 +1114,29 @@ const APP_NAME = "New Hope Band";
       },
     };
   }
-  // grip handle drag (mouse + touch on the handle itself)
+  // grip handle drag (mouse + touch on the handle itself).
+  // We listen on `window`, NOT the handle, and skip setPointerCapture: the drag
+  // hides the row (and the handle inside it), which would drop a captured
+  // pointer on Android and freeze the drag. touch-action:none on the handle
+  // stops the page scrolling while grabbing.
   function enableDrag(li, handle) {
-    handle.style.touchAction = "none"; // don't scroll the page while grabbing
+    handle.style.touchAction = "none";
     handle.addEventListener("click", (e) => e.stopPropagation());
     handle.addEventListener("pointerdown", (e) => {
+      if (e.button > 0) return; // ignore right/middle click
       e.preventDefault();
       e.stopPropagation();
-      try {
-        handle.setPointerCapture(e.pointerId);
-      } catch {}
       const drag = beginCloneDrag(li, e.clientY);
       const onMove = (ev) => drag.move(ev.clientY);
       const onUp = () => {
-        handle.removeEventListener("pointermove", onMove);
-        handle.removeEventListener("pointerup", onUp);
-        handle.removeEventListener("pointercancel", onUp);
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
         drag.end();
       };
-      handle.addEventListener("pointermove", onMove);
-      handle.addEventListener("pointerup", onUp);
-      handle.addEventListener("pointercancel", onUp);
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
     });
   }
   // press-and-hold ANYWHERE on the row (touch) to pick it up and reorder.
