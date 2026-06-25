@@ -30,6 +30,23 @@
       rel="stylesheet"
     />
 
+    <!-- Apply the saved theme BEFORE first paint so reloads don't flash the
+         dark palette (the CSS default) when light is selected. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme") || "light";
+          document.documentElement.setAttribute("data-theme", t);
+          document.documentElement.style.colorScheme =
+            t === "light" ? "light" : "dark";
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute("content", t === "light" ? "#f4efe5" : "#0d0e12");
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
+
     <style>
       :root {
         /* Dark — derived from the logo: cool near-black + periwinkle accent */
@@ -187,20 +204,24 @@
         z-index: 20;
         padding-top: env(safe-area-inset-top);
         padding-bottom: 10px;
-        background: color-mix(in srgb, var(--bg) 60%, transparent);
+        /* solid colour behind the title + search (no blur) */
+        background: var(--bg);
+      }
+      /* only the bottom edge blurs/fades: a short strip just below the solid
+         header so content scrolling up softens as it passes under it */
+      header::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        height: 18px;
+        pointer-events: none;
+        background: linear-gradient(to bottom, var(--bg), transparent);
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
-        /* fade the blur out at the bottom so the edge isn't sharp */
-        -webkit-mask-image: linear-gradient(
-          to bottom,
-          #000 calc(100% - 18px),
-          transparent
-        );
-        mask-image: linear-gradient(
-          to bottom,
-          #000 calc(100% - 18px),
-          transparent
-        );
+        -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+        mask-image: linear-gradient(to bottom, #000, transparent);
       }
       .bar {
         display: flex;
@@ -1497,7 +1518,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 30</span>
+          &middot; <span id="ver">build 31</span>
         </footer>
       </div>
 
