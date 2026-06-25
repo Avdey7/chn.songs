@@ -1302,17 +1302,23 @@ const APP_NAME = "New Hope Band";
       t.className = "song-title";
       t.textContent = s.title;
       li.appendChild(t);
-      if (s.langAbbrs && s.langAbbrs.length) {
-        const lb = document.createElement("span");
-        lb.className = "song-langs";
-        lb.textContent = s.langAbbrs.join(" \u00B7 ");
-        li.appendChild(lb);
-      }
-      if (s.key) {
-        const k = document.createElement("span");
-        k.className = "song-key";
-        k.textContent = s.key;
-        li.appendChild(k);
+      // key on top, language initials as a quiet hint right beneath it
+      if (s.key || (s.langAbbrs && s.langAbbrs.length)) {
+        const kl = document.createElement("div");
+        kl.className = "row-keylang";
+        if (s.key) {
+          const k = document.createElement("span");
+          k.className = "song-key";
+          k.textContent = s.key;
+          kl.appendChild(k);
+        }
+        if (s.langAbbrs && s.langAbbrs.length) {
+          const lb = document.createElement("span");
+          lb.className = "song-langs";
+          lb.textContent = s.langAbbrs.join(" \u00B7 ");
+          kl.appendChild(lb);
+        }
+        li.appendChild(kl);
       }
       if (listMode !== "set") {
         const fav = document.createElement("button");
