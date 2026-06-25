@@ -458,6 +458,13 @@ const APP_NAME = "New Hope Band";
       (versions[0].raw.match(/\{title:\s*([^}]+)\}/i) || [])[1] ||
       "Untitled";
     const langs = versions.map((v) => v.lang).filter(Boolean);
+    // a language badge for EVERY song (even single-language): use the declared
+    // language, else guess it from the lyrics (EN / UK / RU)
+    const langAbbrs = [];
+    versions.forEach((v) => {
+      const a = v.lang ? abbr(v.lang) : detectAbbr(v.raw);
+      if (a && !langAbbrs.includes(a)) langAbbrs.push(a);
+    });
     const searchText = (
       title +
       " " +
@@ -469,10 +476,19 @@ const APP_NAME = "New Hope Band";
       key: versions[0].key || "",
       versions,
       langs,
+      langAbbrs,
       searchText: searchText + " " + tags.join(" ").toLowerCase(),
       uid: (typeof entry === "object" && entry._uid) || null,
       tags,
     };
+  }
+  // best-guess language abbreviation from lyrics, for songs with no declared lang
+  function detectAbbr(raw) {
+    const t = plainText(raw);
+    if (/[іїєґ]/i.test(t)) return "UK"; // Ukrainian-specific letters
+    if (/[ёъыэ]/i.test(t)) return "RU"; // Russian-specific letters
+    if (/[а-я]/i.test(t)) return "UK"; // other Cyrillic -> assume Ukrainian
+    return "EN";
   }
   const parseTags = (s) =>
     String(s || "")
@@ -955,7 +971,14 @@ const APP_NAME = "New Hope Band";
   function shareSet() {
     const s = activeSet();
     if (!s) return;
-    const payload = encodeURIComponent(JSON.stringify({ n: s.name, s: s.songs }));
+    // compact payload: store each global song as its short numeric id (and only
+    // fall back to the full title for device-only songs) -> much shorter link/QR
+    const uidByTitle = new Map(songs.map((x) => [x.title, x.uid]));
+    const v = s.songs.map((t) => {
+      const u = uidByTitle.get(t);
+      return u && /^g:\d+$/.test(u) ? +u.slice(2) : t;
+    });
+    const payload = encodeURIComponent(JSON.stringify({ n: s.name, v }));
     const url = location.origin + location.pathname + "#set=" + payload;
     $("share-name").textContent = s.name;
     $("share-link").value = url;
@@ -976,9 +999,26 @@ const APP_NAME = "New Hope Band";
     if (idx >= 0) payload = payload.slice(idx + 5);
     try {
       const obj = JSON.parse(decodeURIComponent(payload));
-      if (!obj || !Array.isArray(obj.s)) return null;
+      let titles;
+      if (Array.isArray(obj.v)) {
+        // new compact form: numeric ids resolve to titles via the catalog;
+        // plain strings are already titles (device-only songs / old links)
+        titles = obj.v
+          .map((item) => {
+            if (typeof item === "number" || /^\d+$/.test(item)) {
+              const sg = songs.find((x) => x.uid === "g:" + item);
+              return sg ? sg.title : null;
+            }
+            return item;
+          })
+          .filter(Boolean);
+      } else if (Array.isArray(obj.s)) {
+        titles = obj.s; // legacy: array of titles
+      } else {
+        return null;
+      }
       const sets = getSets() || [];
-      const s = { id: uid(), name: obj.n || "Imported set", songs: obj.s };
+      const s = { id: uid(), name: obj.n || "Imported set", songs: titles };
       sets.push(s);
       saveSets(sets);
       activeSetId = s.id;
@@ -1031,53 +1071,50 @@ const APP_NAME = "New Hope Band";
     });
   }
 
-  // ---- drag to reorder set rows (pointer events: touch + mouse) ----
-  // The grabbed row lifts out of flow and follows the finger; a dashed
-  // placeholder shows where it will drop.
-  // Shared float / placeholder helpers so both the grip handle (pointer) and a
-  // long-press anywhere on the row (touch) can drive the same reorder.
-  function dragSetup(li, clientY) {
+  // ---- drag to reorder set rows ----
+  // Shared clone-based core: a floating CLONE follows the pointer while the real
+  // row stays in the DOM as a hidden travelling gap (no dashed placeholder, no
+  // jumpy outline). Used by the grip handle (pointer) AND press-and-hold (touch).
+  function beginCloneDrag(li, startY) {
     const rect = li.getBoundingClientRect();
-    const offsetY = clientY - rect.top; // keep the row under the finger
-    const ph = document.createElement("li");
-    ph.className = "drag-placeholder";
-    ph.style.height = rect.height + "px";
-    listEl.insertBefore(ph, li);
-    li.classList.add("dragging");
-    li.style.position = "fixed";
-    li.style.left = rect.left + "px";
-    li.style.width = rect.width + "px";
-    li.style.top = clientY - offsetY + "px";
-    li.style.zIndex = "999";
-    return { ph, offsetY };
+    const offsetY = startY - rect.top;
+    const clone = li.cloneNode(true);
+    clone.classList.add("dragging");
+    clone.style.cssText =
+      "display:flex;position:fixed;margin:0;z-index:999;pointer-events:none;left:" +
+      rect.left + "px;width:" + rect.width + "px;top:" + rect.top + "px;";
+    listEl.appendChild(clone);
+    li.style.visibility = "hidden";
+    li.classList.add("drag-source");
+    return {
+      move(y) {
+        clone.style.top = y - offsetY + "px";
+        const sibs = [
+          ...listEl.querySelectorAll("li:not(.dragging):not(.drag-source)"),
+        ];
+        let placed = false;
+        for (const sib of sibs) {
+          const r = sib.getBoundingClientRect();
+          if (y < r.top + r.height / 2) {
+            listEl.insertBefore(li, sib);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) listEl.appendChild(li);
+      },
+      end() {
+        li.style.visibility = "";
+        li.classList.remove("drag-source");
+        clone.remove();
+        const order = [...listEl.querySelectorAll("li")]
+          .map((el) => el.dataset.title)
+          .filter(Boolean);
+        saveSet(order);
+      },
+    };
   }
-  function dragMoveTo(li, ph, clientY, offsetY) {
-    li.style.top = clientY - offsetY + "px";
-    const sibs = [
-      ...listEl.querySelectorAll("li:not(.dragging):not(.drag-placeholder)"),
-    ];
-    let placed = false;
-    for (const sib of sibs) {
-      const r = sib.getBoundingClientRect();
-      if (clientY < r.top + r.height / 2) {
-        listEl.insertBefore(ph, sib);
-        placed = true;
-        break;
-      }
-    }
-    if (!placed) listEl.appendChild(ph);
-  }
-  function dragDrop(li, ph) {
-    listEl.insertBefore(li, ph);
-    ph.remove();
-    li.classList.remove("dragging");
-    li.style.cssText = "";
-    const order = [...listEl.querySelectorAll("li")]
-      .map((el) => el.dataset.title)
-      .filter(Boolean);
-    saveSet(order);
-  }
-  // grip handle drag (mouse, and touch on the handle itself)
+  // grip handle drag (mouse + touch on the handle itself)
   function enableDrag(li, handle) {
     handle.style.touchAction = "none"; // don't scroll the page while grabbing
     handle.addEventListener("click", (e) => e.stopPropagation());
@@ -1087,13 +1124,13 @@ const APP_NAME = "New Hope Band";
       try {
         handle.setPointerCapture(e.pointerId);
       } catch {}
-      const { ph, offsetY } = dragSetup(li, e.clientY);
-      const onMove = (ev) => dragMoveTo(li, ph, ev.clientY, offsetY);
+      const drag = beginCloneDrag(li, e.clientY);
+      const onMove = (ev) => drag.move(ev.clientY);
       const onUp = () => {
         handle.removeEventListener("pointermove", onMove);
         handle.removeEventListener("pointerup", onUp);
         handle.removeEventListener("pointercancel", onUp);
-        dragDrop(li, ph);
+        drag.end();
       };
       handle.addEventListener("pointermove", onMove);
       handle.addEventListener("pointerup", onUp);
@@ -1102,59 +1139,17 @@ const APP_NAME = "New Hope Band";
   }
   // press-and-hold ANYWHERE on the row (touch) to pick it up and reorder.
   // A short tap still opens the song; a quick drag still scrolls the list.
-  // The touched row stays put (so iOS keeps the touch alive); a floating CLONE
-  // follows the finger and a placeholder shows where it will land.
   function enableHoldDrag(li) {
     let timer = null,
       sx = 0,
       sy = 0,
       ly = 0,
-      mode = false,
-      clone = null,
-      offsetY = 0;
+      drag = null;
     const clearTimer = () => {
       if (timer) {
         clearTimeout(timer);
         timer = null;
       }
-    };
-    const pickUp = () => {
-      const rect = li.getBoundingClientRect();
-      offsetY = ly - rect.top;
-      // a floating clone follows the finger; the real row stays in the DOM as a
-      // hidden gap (keeps the touch alive) and is what we reorder among siblings
-      clone = li.cloneNode(true);
-      clone.classList.add("dragging");
-      clone.style.cssText =
-        "display:flex;position:fixed;margin:0;z-index:999;pointer-events:none;left:" +
-        rect.left + "px;width:" + rect.width + "px;top:" + rect.top + "px;";
-      listEl.appendChild(clone);
-      li.style.visibility = "hidden";
-      li.classList.add("drag-source");
-      mode = true;
-      suppressSwipe = true; // don't let the drag double as a tab swipe
-      if (navigator.vibrate) navigator.vibrate(15); // haptic "picked up"
-    };
-    const drop = () => {
-      clearTimer();
-      if (!mode) return;
-      mode = false;
-      li.style.visibility = "";
-      li.classList.remove("drag-source");
-      if (clone) {
-        clone.remove();
-        clone = null;
-      }
-      const order = [...listEl.querySelectorAll("li")]
-        .map((el) => el.dataset.title)
-        .filter(Boolean);
-      saveSet(order);
-      // swallow the click + tab-swipe that follow this touchend
-      li._suppressClick = true;
-      setTimeout(() => {
-        li._suppressClick = false;
-        suppressSwipe = false;
-      }, 100);
     };
     li.addEventListener(
       "touchstart",
@@ -1169,9 +1164,13 @@ const APP_NAME = "New Hope Band";
         sx = t.clientX;
         sy = t.clientY;
         ly = t.clientY;
-        mode = false;
+        drag = null;
         clearTimer();
-        timer = setTimeout(pickUp, 320);
+        timer = setTimeout(() => {
+          drag = beginCloneDrag(li, ly);
+          suppressSwipe = true; // don't let the drag double as a tab swipe
+          if (navigator.vibrate) navigator.vibrate(15); // haptic "picked up"
+        }, 320);
       },
       { passive: true },
     );
@@ -1181,29 +1180,15 @@ const APP_NAME = "New Hope Band";
         const t = e.touches[0];
         if (!t) return;
         ly = t.clientY;
-        if (mode) {
+        if (drag) {
           e.preventDefault(); // hijack the page scroll while dragging
-          clone.style.top = t.clientY - offsetY + "px";
-          // move the hidden source row (the travelling gap) among the others
-          const sibs = [
-            ...listEl.querySelectorAll("li:not(.dragging):not(.drag-source)"),
-          ];
-          let placed = false;
-          for (const sib of sibs) {
-            const r = sib.getBoundingClientRect();
-            if (t.clientY < r.top + r.height / 2) {
-              listEl.insertBefore(li, sib);
-              placed = true;
-              break;
-            }
-          }
-          if (!placed) listEl.appendChild(li);
+          drag.move(t.clientY);
           return;
         }
         if (timer) {
-          // still waiting for the hold: swallow tiny jitter so iOS doesn't
-          // start scrolling and cancel the touch; but a real scroll swipe
-          // (a big first move) falls through and scrolls normally.
+          // still waiting for the hold: swallow tiny jitter so iOS doesn't start
+          // scrolling and cancel the touch; a real scroll swipe (big first move)
+          // falls through and scrolls normally.
           if (Math.abs(t.clientX - sx) <= 10 && Math.abs(t.clientY - sy) <= 10) {
             e.preventDefault();
           } else {
@@ -1213,8 +1198,20 @@ const APP_NAME = "New Hope Band";
       },
       { passive: false },
     );
-    li.addEventListener("touchend", drop);
-    li.addEventListener("touchcancel", drop);
+    const end = () => {
+      clearTimer();
+      if (!drag) return;
+      drag.end();
+      drag = null;
+      // swallow the click + tab-swipe that follow this touchend
+      li._suppressClick = true;
+      setTimeout(() => {
+        li._suppressClick = false;
+        suppressSwipe = false;
+      }, 100);
+    };
+    li.addEventListener("touchend", end);
+    li.addEventListener("touchcancel", end);
   }
   function clearSet() {
     saveSet([]);
@@ -1303,10 +1300,10 @@ const APP_NAME = "New Hope Band";
       t.className = "song-title";
       t.textContent = s.title;
       li.appendChild(t);
-      if (s.langs.length > 1) {
+      if (s.langAbbrs && s.langAbbrs.length) {
         const lb = document.createElement("span");
         lb.className = "song-langs";
-        lb.textContent = s.langs.map(abbr).join(" \u00B7 ");
+        lb.textContent = s.langAbbrs.join(" \u00B7 ");
         li.appendChild(lb);
       }
       if (s.key) {
@@ -1451,9 +1448,14 @@ const APP_NAME = "New Hope Band";
     // slide/fade the list when actually switching tabs (Set = from the right,
     // All = from the left), so tap and swipe both feel directional
     if (changed) {
-      listEl.classList.remove("list-anim-next", "list-anim-prev");
-      void listEl.offsetWidth; // restart the animation
-      listEl.classList.add(mode === "set" ? "list-anim-next" : "list-anim-prev");
+      const cls = mode === "set" ? "list-anim-next" : "list-anim-prev";
+      const anim = [listEl, $("set-bar"), $("tag-bar")].filter(Boolean);
+      anim.forEach((el) => {
+        if (el.classList.contains("hidden")) return;
+        el.classList.remove("list-anim-next", "list-anim-prev");
+        void el.offsetWidth; // restart the animation
+        el.classList.add(cls);
+      });
     }
   }
 
@@ -2050,6 +2052,9 @@ const APP_NAME = "New Hope Band";
     $("chords-btn").addEventListener("click", toggleChords);
     $("set-btn").addEventListener("click", toggleSet);
     $("fab").addEventListener("click", toggleControls);
+    // clicks inside the control panel never close it (a button may swap its own
+    // icon mid-click, detaching the target and tricking the outside-check below)
+    $("fab-panel").addEventListener("click", (e) => e.stopPropagation());
     // tap outside the bubble (on the song) closes it
     document.addEventListener("click", (e) => {
       if (fabWrap.classList.contains("open") && !fabWrap.contains(e.target)) {
@@ -2132,7 +2137,7 @@ const APP_NAME = "New Hope Band";
         if (
           target &&
           target.closest &&
-          target.closest(".list-tabs, .set-bar, .row-drag")
+          target.closest(".list-tabs, .set-bar, .tag-bar, .row-drag")
         )
           return;
       } else {

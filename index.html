@@ -140,10 +140,10 @@
         }
       }
       .list-anim-next {
-        animation: tabInRight var(--t-med) var(--ease);
+        animation: tabInRight 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
       }
       .list-anim-prev {
-        animation: tabInLeft var(--t-med) var(--ease);
+        animation: tabInLeft 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
       }
       @media (prefers-reduced-motion: reduce) {
         *,
@@ -174,7 +174,11 @@
         -webkit-font-smoothing: antialiased;
         line-height: 1.5;
         overscroll-behavior-y: none;
+        /* clip (not hidden): keeps <html> as the scroll container so the
+           reserved scrollbar gutter stays stable and the fixed bottom-nav
+           doesn't jump when All/Set lists differ in height */
         overflow-x: hidden;
+        overflow-x: clip;
       }
       #app {
         position: relative;
@@ -419,7 +423,7 @@
         display: none !important;
       }
       .song-header {
-        padding: 6px 0 4px;
+        padding: 14px 0 10px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -435,8 +439,8 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        height: 40px;
-        padding: 0 16px 0 11px;
+        height: 44px;
+        padding: 0 18px 0 13px;
         border-radius: 999px;
         border: 1px solid var(--border);
         background: var(--surface);
@@ -962,16 +966,25 @@
         flex: 1;
         min-width: 0;
         font-family: "Inter", sans-serif;
+        font-weight: 600;
         font-size: 0.9rem;
         color: var(--text);
-        background: var(--surface);
+        background-color: var(--surface);
+        /* custom chevron so the native control matches the pill design */
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 9px 10px;
+        border-radius: 999px;
+        padding: 11px 38px 11px 16px;
         outline: none;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
       }
       #set-select:focus {
-        border-color: var(--accent-dim);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
       }
       .setbtn {
         appearance: none;
@@ -1161,6 +1174,12 @@
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+      }
+      /* the 2nd-language block lays out exactly like the first (same gaps) */
+      #ed-block2:not(.hidden) {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
       #ed-name {
         flex: 1 1 100%;
@@ -1477,7 +1496,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 26</span>
+          &middot; <span id="ver">build 27</span>
         </footer>
       </div>
 
@@ -1690,7 +1709,6 @@
           </div>
           <textarea id="ed-text2" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below."></textarea>
         </div>
-        <p class="ed-hint">Shared with everyone (admin login required).</p>
       </div>
     </div>
 
