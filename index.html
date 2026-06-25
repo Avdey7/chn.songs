@@ -45,6 +45,13 @@
         --accent-soft: rgba(143, 156, 240, 0.13);
         --on-accent: #11131c; /* text on an accent-filled surface */
         --chorus: var(--accent-soft);
+        /* per-section colour coding (tuned for the dark background) */
+        --sec-aux: #9aa0b2;
+        --sec-verse: #aab6f7;
+        --sec-pre: #fbbf24;
+        --sec-chorus: #c4b5fd;
+        --sec-bridge: #5eead4;
+        --sec-outro: #fda4af;
         --radius: 14px;
         --maxw: 760px;
         --t-fast: 0.12s;
@@ -65,6 +72,13 @@
         --accent-soft: rgba(79, 70, 229, 0.07);
         --on-accent: #ffffff;
         --chorus: var(--accent-soft);
+        /* per-section colour coding (tuned for the light background) */
+        --sec-aux: #6b7280;
+        --sec-verse: #4f46e5;
+        --sec-pre: #b45309;
+        --sec-chorus: #6d28d9;
+        --sec-bridge: #0f766e;
+        --sec-outro: #be123c;
       }
 
       * {
@@ -557,14 +571,52 @@
       /* Chorus: tinted accent card so it stands out at a glance */
       .sheet .paragraph.chorus {
         background: var(--chorus);
-        border-left: 3px solid var(--accent);
+        border-left: 3px solid var(--sec-chorus);
         padding: 12px 16px;
         border-radius: 10px;
       }
-      /* Bridge: quieter left rule to set it apart from verses */
-      .sheet .paragraph.bridge {
-        border-left: 2px solid var(--border);
+      /* per-section colour coding: a coloured left band on each block ... */
+      .sheet .paragraph.sec-aux,
+      .sheet .paragraph.sec-verse,
+      .sheet .paragraph.sec-pre,
+      .sheet .paragraph.sec-bridge,
+      .sheet .paragraph.sec-outro {
+        border-left: 3px solid var(--border);
         padding: 2px 0 2px 14px;
+      }
+      .sheet .paragraph.sec-aux {
+        border-left-color: var(--sec-aux);
+      }
+      .sheet .paragraph.sec-verse {
+        border-left-color: var(--sec-verse);
+      }
+      .sheet .paragraph.sec-pre {
+        border-left-color: var(--sec-pre);
+      }
+      .sheet .paragraph.sec-bridge {
+        border-left-color: var(--sec-bridge);
+      }
+      .sheet .paragraph.sec-outro {
+        border-left-color: var(--sec-outro);
+      }
+      /* ... and the matching colour on the section label itself */
+      .sheet .comment.sec-aux {
+        color: var(--sec-aux);
+      }
+      .sheet .comment.sec-verse {
+        color: var(--sec-verse);
+      }
+      .sheet .comment.sec-pre {
+        color: var(--sec-pre);
+      }
+      .sheet .comment.sec-chorus {
+        color: var(--sec-chorus);
+      }
+      .sheet .comment.sec-bridge {
+        color: var(--sec-bridge);
+      }
+      .sheet .comment.sec-outro {
+        color: var(--sec-outro);
       }
       .sheet .row {
         display: flex;
@@ -1210,8 +1262,14 @@
           color: #000;
           font-weight: 700;
         }
-        .sheet .comment {
+        .sheet .comment,
+        .sheet .comment[class*="sec-"] {
           color: #000;
+        }
+        /* drop the on-screen section colour bands for clean B/W printing */
+        .sheet .paragraph[class*="sec-"] {
+          border-left: none;
+          padding-left: 0;
         }
         .sheet .paragraph.chorus {
           background: #f0f0f0;
@@ -1320,7 +1378,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 19</span>
+          &middot; <span id="ver">build 20</span>
         </footer>
       </div>
 

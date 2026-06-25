@@ -282,6 +282,21 @@ const APP_NAME = "New Hope Band";
   const CHORUS_KEYS = new Set([
     "chorus", "halfchorus", "refrain", "приспів", "припев", "заспів",
   ]);
+  // Group every section label into a colour family for per-section colour
+  // coding in the sheet. Keys match headerKey() output (lowercased, stripped).
+  const SECTION_CAT = {
+    intro: "aux", instrumental: "aux", interlude: "aux", solo: "aux",
+    turnaround: "aux", turn: "aux", vamp: "aux", breakdown: "aux", channel: "aux",
+    verse: "verse", halfverse: "verse",
+    prechorus: "pre",
+    chorus: "chorus", refrain: "chorus", halfchorus: "chorus",
+    bridge: "bridge",
+    outro: "outro", ending: "outro", coda: "outro", tag: "outro", hook: "outro",
+  };
+  // English-label text (e.g. "Verse 1", "Chorus x2") -> colour family or "".
+  function sectionCat(text) {
+    return SECTION_CAT[headerKey(text || "")] || "";
+  }
   function headerKey(line) {
     return line
       .toLowerCase()
@@ -1392,6 +1407,18 @@ const APP_NAME = "New Hope Band";
         } catch {}
       }
       c.textContent = fixEnharmonic(t);
+    });
+    // per-section colour coding: tag each section label (and its block) with a
+    // colour family so Verse / Chorus / Bridge / etc. are scannable at a glance
+    sheetEl.querySelectorAll(".comment").forEach((cm) => {
+      const cat = sectionCat(cm.textContent);
+      if (!cat) return;
+      cm.classList.add("sec-" + cat);
+      // band the surrounding block too (chorus keeps its own tinted card)
+      const p = cm.closest(".paragraph");
+      if (p && cat !== "chorus" && !p.classList.contains("chorus")) {
+        p.classList.add("sec-" + cat);
+      }
     });
 
     let now = keyName(v.key, delta);
