@@ -37,6 +37,7 @@ const APP_NAME = "New Hope Band";
   let currentMatches = []; // songs currently shown in the list (nav source)
   let navList = []; // song objects to swipe through
   let navPos = -1; // position within navList
+  let suppressSwipe = false; // true briefly after a set-row hold-drag
 
   // ---- persistence (localStorage works in a deployed PWA) ----
   const store = {
@@ -1101,19 +1102,59 @@ const APP_NAME = "New Hope Band";
   }
   // press-and-hold ANYWHERE on the row (touch) to pick it up and reorder.
   // A short tap still opens the song; a quick drag still scrolls the list.
+  // The touched row stays put (so iOS keeps the touch alive); a floating CLONE
+  // follows the finger and a placeholder shows where it will land.
   function enableHoldDrag(li) {
     let timer = null,
       sx = 0,
       sy = 0,
       ly = 0,
       mode = false,
-      ph = null,
+      clone = null,
       offsetY = 0;
     const clearTimer = () => {
       if (timer) {
         clearTimeout(timer);
         timer = null;
       }
+    };
+    const pickUp = () => {
+      const rect = li.getBoundingClientRect();
+      offsetY = ly - rect.top;
+      // a floating clone follows the finger; the real row stays in the DOM as a
+      // hidden gap (keeps the touch alive) and is what we reorder among siblings
+      clone = li.cloneNode(true);
+      clone.classList.add("dragging");
+      clone.style.cssText =
+        "display:flex;position:fixed;margin:0;z-index:999;pointer-events:none;left:" +
+        rect.left + "px;width:" + rect.width + "px;top:" + rect.top + "px;";
+      listEl.appendChild(clone);
+      li.style.visibility = "hidden";
+      li.classList.add("drag-source");
+      mode = true;
+      suppressSwipe = true; // don't let the drag double as a tab swipe
+      if (navigator.vibrate) navigator.vibrate(15); // haptic "picked up"
+    };
+    const drop = () => {
+      clearTimer();
+      if (!mode) return;
+      mode = false;
+      li.style.visibility = "";
+      li.classList.remove("drag-source");
+      if (clone) {
+        clone.remove();
+        clone = null;
+      }
+      const order = [...listEl.querySelectorAll("li")]
+        .map((el) => el.dataset.title)
+        .filter(Boolean);
+      saveSet(order);
+      // swallow the click + tab-swipe that follow this touchend
+      li._suppressClick = true;
+      setTimeout(() => {
+        li._suppressClick = false;
+        suppressSwipe = false;
+      }, 100);
     };
     li.addEventListener(
       "touchstart",
@@ -1130,13 +1171,7 @@ const APP_NAME = "New Hope Band";
         ly = t.clientY;
         mode = false;
         clearTimer();
-        timer = setTimeout(() => {
-          mode = true;
-          const r = dragSetup(li, ly);
-          ph = r.ph;
-          offsetY = r.offsetY;
-          if (navigator.vibrate) navigator.vibrate(15); // haptic "picked up"
-        }, 350);
+        timer = setTimeout(pickUp, 320);
       },
       { passive: true },
     );
@@ -1148,33 +1183,38 @@ const APP_NAME = "New Hope Band";
         ly = t.clientY;
         if (mode) {
           e.preventDefault(); // hijack the page scroll while dragging
-          dragMoveTo(li, ph, t.clientY, offsetY);
+          clone.style.top = t.clientY - offsetY + "px";
+          // move the hidden source row (the travelling gap) among the others
+          const sibs = [
+            ...listEl.querySelectorAll("li:not(.dragging):not(.drag-source)"),
+          ];
+          let placed = false;
+          for (const sib of sibs) {
+            const r = sib.getBoundingClientRect();
+            if (t.clientY < r.top + r.height / 2) {
+              listEl.insertBefore(li, sib);
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) listEl.appendChild(li);
           return;
         }
-        // moved before the hold fired -> treat it as a scroll, cancel the pickup
-        if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) {
-          clearTimer();
+        if (timer) {
+          // still waiting for the hold: swallow tiny jitter so iOS doesn't
+          // start scrolling and cancel the touch; but a real scroll swipe
+          // (a big first move) falls through and scrolls normally.
+          if (Math.abs(t.clientX - sx) <= 10 && Math.abs(t.clientY - sy) <= 10) {
+            e.preventDefault();
+          } else {
+            clearTimer();
+          }
         }
       },
       { passive: false },
     );
-    const end = () => {
-      clearTimer();
-      if (mode) {
-        mode = false;
-        if (ph) {
-          dragDrop(li, ph);
-          ph = null;
-        }
-        // swallow the click that follows touchend so the song doesn't open
-        li._suppressClick = true;
-        setTimeout(() => {
-          li._suppressClick = false;
-        }, 80);
-      }
-    };
-    li.addEventListener("touchend", end);
-    li.addEventListener("touchcancel", end);
+    li.addEventListener("touchend", drop);
+    li.addEventListener("touchcancel", drop);
   }
   function clearSet() {
     saveSet([]);
@@ -2067,18 +2107,24 @@ const APP_NAME = "New Hope Band";
       sy = 0,
       swiping = false;
     function swipeStart(x, y, target) {
+      swiping = false;
+      // never while the editor is open
+      if (!$("editor").classList.contains("hidden")) return;
+      const inChrome =
+        target && target.closest && target.closest("#fab-wrap, #editor");
       if (current === null) {
-        swiping = false;
-        return;
-      }
-      // no song-switching while the editor or the controls bubble is open
-      if (
-        !$("editor").classList.contains("hidden") ||
-        fabWrap.classList.contains("open") ||
-        (target && target.closest && target.closest("#fab-wrap, #editor"))
-      ) {
-        swiping = false;
-        return;
+        // list view: allow a horizontal swipe to switch All <-> Set, but not
+        // when it starts on the tabs/toolbar or a reorder grip
+        if (listView.classList.contains("hidden")) return;
+        if (
+          target &&
+          target.closest &&
+          target.closest(".list-tabs, .set-bar, .row-drag")
+        )
+          return;
+      } else {
+        // song view: no song-switching while the controls bubble is open
+        if (fabWrap.classList.contains("open") || inChrome) return;
       }
       sx = x;
       sy = y;
@@ -2089,7 +2135,12 @@ const APP_NAME = "New Hope Band";
       swiping = false;
       const dx = x - sx,
         dy = y - sy;
-      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      if (!(Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3)) return;
+      if (current === null) {
+        if (suppressSwipe) return; // a hold-to-reorder just finished
+        // swipe left -> Set, swipe right -> All songs
+        setListMode(dx < 0 ? "set" : "all");
+      } else {
         gotoNav(dx < 0 ? 1 : -1);
       }
     }
