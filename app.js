@@ -1958,6 +1958,9 @@ const APP_NAME = "New Hope Band";
     applyChords();
     updateSetCount();
 
+    // never start a text selection inside the list (press-and-hold reorders)
+    listEl.addEventListener("selectstart", (e) => e.preventDefault());
+
     const searchClear = $("search-clear");
     const updateSearchClear = () =>
       searchClear &&

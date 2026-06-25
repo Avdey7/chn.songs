@@ -329,8 +329,13 @@
         border-radius: 12px;
         cursor: pointer;
         transition: background 0.12s ease;
-        /* press-and-hold reorders the row — never start a text selection */
+      }
+      /* press-and-hold reorders a row — never let the text get selected or the
+         iOS callout/magnifier appear (applied to the row AND its children) */
+      ul.list li,
+      ul.list li * {
         -webkit-user-select: none;
+        -moz-user-select: none;
         user-select: none;
         -webkit-touch-callout: none;
       }
@@ -1472,7 +1477,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 25</span>
+          &middot; <span id="ver">build 26</span>
         </footer>
       </div>
 
