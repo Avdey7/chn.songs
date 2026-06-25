@@ -45,13 +45,7 @@
         --accent-soft: rgba(143, 156, 240, 0.13);
         --on-accent: #11131c; /* text on an accent-filled surface */
         --chorus: var(--accent-soft);
-        /* per-section colour coding (tuned for the dark background) */
-        --sec-aux: #9aa0b2;
-        --sec-verse: #aab6f7;
-        --sec-pre: #fbbf24;
-        --sec-chorus: #c4b5fd;
-        --sec-bridge: #5eead4;
-        --sec-outro: #fda4af;
+        --accent-grad: linear-gradient(135deg, #aab6f7, #c4b5fd);
         --radius: 14px;
         --maxw: 760px;
         --t-fast: 0.12s;
@@ -59,26 +53,20 @@
         --ease: cubic-bezier(0.4, 0, 0.2, 1);
       }
       [data-theme="light"] {
-        /* Light — cool off-white + deep indigo accent */
-        --bg: #f6f7fb;
-        --bg-grad: #eceef6;
-        --surface: #ffffff;
-        --surface-2: #eef0f6;
-        --border: #e3e6ef;
-        --text: #1a1c24;
-        --muted: #666c7d;
+        /* Light — warm paper / ivory + deep indigo accent (cozy songbook) */
+        --bg: #f4efe5;
+        --bg-grad: #ece3d4;
+        --surface: #fffdf8;
+        --surface-2: #f1eadd;
+        --border: #e6ddcd;
+        --text: #2a2620;
+        --muted: #7c7264;
         --accent: #4f46e5; /* chords: indigo */
         --accent-dim: #4338ca;
-        --accent-soft: rgba(79, 70, 229, 0.07);
+        --accent-soft: rgba(79, 70, 229, 0.08);
         --on-accent: #ffffff;
         --chorus: var(--accent-soft);
-        /* per-section colour coding (tuned for the light background) */
-        --sec-aux: #6b7280;
-        --sec-verse: #4f46e5;
-        --sec-pre: #b45309;
-        --sec-chorus: #6d28d9;
-        --sec-bridge: #0f766e;
-        --sec-outro: #be123c;
+        --accent-grad: linear-gradient(135deg, #4f46e5, #7c3aed);
       }
 
       * {
@@ -212,7 +200,7 @@
         color: var(--text);
         width: 40px;
         height: 40px;
-        border-radius: 10px;
+        border-radius: 999px;
         font-size: 1.05rem;
         cursor: pointer;
         display: grid;
@@ -235,14 +223,45 @@
       }
       #search {
         width: 100%;
-        padding: 12px 14px 12px 40px;
+        padding: 12px 40px 12px 40px;
         font-size: 1rem;
         font-family: inherit;
         color: var(--text);
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 12px;
+        border-radius: 999px;
         outline: none;
+      }
+      /* hide the native clear control; we render our own always-visible one */
+      #search::-webkit-search-cancel-button {
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      /* always-visible clear (×) button — appears only when there's a query */
+      .search-clear {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        margin-top: -6px; /* offset the wrap's bottom padding */
+        width: 30px;
+        height: 30px;
+        border: none;
+        background: var(--surface-2);
+        color: var(--muted);
+        border-radius: 999px;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        display: none;
+        place-items: center;
+      }
+      .search-clear.show {
+        display: grid;
+      }
+      .search-clear:active {
+        transform: translateY(-50%) scale(0.9);
+        margin-top: -6px;
       }
       #search:focus {
         border-color: var(--accent-dim);
@@ -342,8 +361,8 @@
       }
       .lang-tab.active {
         color: var(--on-accent);
-        background: var(--accent);
-        border-color: var(--accent);
+        background: var(--accent-grad);
+        border-color: transparent;
       }
       .empty {
         color: var(--muted);
@@ -430,7 +449,7 @@
         height: 56px;
         border-radius: 50%;
         border: none;
-        background: var(--accent);
+        background: var(--accent-grad);
         color: var(--on-accent);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
         cursor: pointer;
@@ -502,7 +521,7 @@
         color: var(--text);
         height: 40px;
         min-width: 40px;
-        border-radius: 10px;
+        border-radius: 999px;
         font-size: 1.2rem;
         line-height: 1;
         cursor: pointer;
@@ -571,52 +590,14 @@
       /* Chorus: tinted accent card so it stands out at a glance */
       .sheet .paragraph.chorus {
         background: var(--chorus);
-        border-left: 3px solid var(--sec-chorus);
+        border-left: 3px solid var(--accent);
         padding: 12px 16px;
         border-radius: 10px;
       }
-      /* per-section colour coding: a coloured left band on each block ... */
-      .sheet .paragraph.sec-aux,
-      .sheet .paragraph.sec-verse,
-      .sheet .paragraph.sec-pre,
-      .sheet .paragraph.sec-bridge,
-      .sheet .paragraph.sec-outro {
-        border-left: 3px solid var(--border);
+      /* Bridge: quieter left rule to set it apart from verses */
+      .sheet .paragraph.bridge {
+        border-left: 2px solid var(--border);
         padding: 2px 0 2px 14px;
-      }
-      .sheet .paragraph.sec-aux {
-        border-left-color: var(--sec-aux);
-      }
-      .sheet .paragraph.sec-verse {
-        border-left-color: var(--sec-verse);
-      }
-      .sheet .paragraph.sec-pre {
-        border-left-color: var(--sec-pre);
-      }
-      .sheet .paragraph.sec-bridge {
-        border-left-color: var(--sec-bridge);
-      }
-      .sheet .paragraph.sec-outro {
-        border-left-color: var(--sec-outro);
-      }
-      /* ... and the matching colour on the section label itself */
-      .sheet .comment.sec-aux {
-        color: var(--sec-aux);
-      }
-      .sheet .comment.sec-verse {
-        color: var(--sec-verse);
-      }
-      .sheet .comment.sec-pre {
-        color: var(--sec-pre);
-      }
-      .sheet .comment.sec-chorus {
-        color: var(--sec-chorus);
-      }
-      .sheet .comment.sec-bridge {
-        color: var(--sec-bridge);
-      }
-      .sheet .comment.sec-outro {
-        color: var(--sec-outro);
       }
       .sheet .row {
         display: flex;
@@ -709,7 +690,7 @@
         flex: none;
         width: 30px;
         height: 30px;
-        border-radius: 8px;
+        border-radius: 999px;
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--muted);
@@ -756,7 +737,7 @@
         flex: none;
         width: 30px;
         height: 30px;
-        border-radius: 8px;
+        border-radius: 999px;
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--muted);
@@ -787,7 +768,7 @@
         color: var(--muted);
         min-width: 38px;
         height: 32px;
-        border-radius: 8px;
+        border-radius: 999px;
         font-size: 1rem;
         letter-spacing: -3px;
         line-height: 1;
@@ -823,6 +804,41 @@
         gap: 8px;
         margin: 2px 0 12px;
       }
+      /* Phones: dock All / Set as a fixed bottom navigation bar so the thumb
+         reaches them. Only renders in the list view (#list-view hides in song
+         view), so it never clashes with the floating controls. */
+      @media (max-width: 640px) {
+        #list-view .list-tabs {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 30;
+          margin: 0;
+          justify-content: center;
+          gap: 10px;
+          padding: 9px 16px calc(9px + env(safe-area-inset-bottom, 0));
+          background: var(--bg);
+          background: color-mix(in srgb, var(--bg) 88%, transparent);
+          -webkit-backdrop-filter: blur(14px);
+          backdrop-filter: blur(14px);
+          border-top: 1px solid var(--border);
+        }
+        #list-view .list-tabs .seg {
+          flex: 1;
+          max-width: 190px;
+          justify-content: center;
+          padding: 11px 16px;
+        }
+        /* keep the last rows + footer clear of the docked bar */
+        #list-view .appfoot {
+          padding-bottom: calc(86px + env(safe-area-inset-bottom, 0));
+        }
+        /* lift back-to-top above the bottom bar */
+        .totop {
+          bottom: calc(74px + env(safe-area-inset-bottom, 0));
+        }
+      }
       .seg {
         appearance: none;
         cursor: pointer;
@@ -841,8 +857,8 @@
       }
       .seg.active {
         color: var(--on-accent);
-        background: var(--accent);
-        border-color: var(--accent);
+        background: var(--accent-grad);
+        border-color: transparent;
       }
       .seg-badge {
         font-family: "JetBrains Mono", monospace;
@@ -902,7 +918,7 @@
         flex: none;
         width: 38px;
         height: 38px;
-        border-radius: 10px;
+        border-radius: 999px;
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--text);
@@ -930,7 +946,7 @@
         color: var(--muted);
         width: 30px;
         height: 30px;
-        border-radius: 8px;
+        border-radius: 999px;
         font-size: 1rem;
         line-height: 1;
         cursor: pointer;
@@ -955,7 +971,7 @@
       #progress-fill {
         height: 100%;
         width: 0%;
-        background: var(--accent);
+        background: var(--accent-grad);
         transition: width 0.12s linear;
       }
       #progress.scrolling #progress-fill {
@@ -1137,7 +1153,7 @@
         font-weight: 600;
         font-size: 0.95rem;
         padding: 11px 20px;
-        border-radius: 10px;
+        border-radius: 999px;
         border: none;
         background: var(--accent);
         color: var(--on-accent);
@@ -1198,6 +1214,27 @@
         fill: #f5b301;
       }
       /* stage mode: big text, minimal chrome */
+      /* Stage mode: true-black OLED palette + light text regardless of the
+         chosen theme (max contrast, saves battery on phones on stage). */
+      html.stage {
+        --bg: #000000;
+        --bg-grad: #000000;
+        --surface: #0a0b0e;
+        --surface-2: #121319;
+        --border: #20242e;
+        --text: #f2f3f8;
+        --muted: #9298aa;
+        --accent: #aab6f7;
+        --accent-dim: #7e8ce0;
+        --accent-soft: rgba(143, 156, 240, 0.16);
+        --on-accent: #000000;
+        --chorus: var(--accent-soft);
+        --accent-grad: linear-gradient(135deg, #aab6f7, #c4b5fd);
+      }
+      html.stage,
+      html.stage body {
+        background: #000000 !important;
+      }
       html.stage #song-view header,
       html.stage .keyline,
       html.stage #progress {
@@ -1262,14 +1299,8 @@
           color: #000;
           font-weight: 700;
         }
-        .sheet .comment,
-        .sheet .comment[class*="sec-"] {
+        .sheet .comment {
           color: #000;
-        }
-        /* drop the on-screen section colour bands for clean B/W printing */
-        .sheet .paragraph[class*="sec-"] {
-          border-left: none;
-          padding-left: 0;
         }
         .sheet .paragraph.chorus {
           background: #f0f0f0;
@@ -1324,15 +1355,19 @@
               placeholder="Search title or lyrics&hellip;"
               autocomplete="off"
             />
-          </div>
-          <div class="list-tabs">
-            <button class="seg active" id="tab-all">All songs</button>
-            <button class="seg" id="tab-set">
-              Set <span class="seg-badge" id="set-count">0</span>
-            </button>
-            <button class="seg-clear hidden" id="set-clear">Clear set</button>
+            <button id="search-clear" class="search-clear" aria-label="Clear search" title="Clear search">&times;</button>
           </div>
         </header>
+        <!-- All / Set tabs: docked to the bottom on phones (see CSS). Kept out
+             of <header> because the header's backdrop-filter would otherwise
+             trap the fixed positioning. -->
+        <div class="list-tabs">
+          <button class="seg active" id="tab-all">All songs</button>
+          <button class="seg" id="tab-set">
+            Set <span class="seg-badge" id="set-count">0</span>
+          </button>
+          <button class="seg-clear hidden" id="set-clear">Clear set</button>
+        </div>
         <div class="set-bar hidden" id="set-bar">
           <select id="set-select" aria-label="Choose set"></select>
           <button class="setbtn" id="set-new" title="New set" aria-label="New set">
@@ -1378,7 +1413,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 20</span>
+          &middot; <span id="ver">build 21</span>
         </footer>
       </div>
 
