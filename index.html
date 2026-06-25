@@ -346,13 +346,28 @@
           background: var(--accent-soft);
         }
       }
+      /* title + a quiet language hint beneath it */
+      .row-main {
+        flex: 1;
+        min-width: 0; /* let long titles wrap/shrink instead of pushing buttons off */
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
       .song-title {
         font-family: "Inter", sans-serif;
         font-weight: 600;
         font-size: 1.08rem;
         letter-spacing: -0.01em;
-        flex: 1;
-        min-width: 0; /* let long titles shrink instead of pushing buttons off */
+      }
+      .song-langs {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 600;
+        font-size: 0.6rem;
+        color: var(--muted);
+        opacity: 0.8;
+        white-space: nowrap;
+        letter-spacing: 0.08em;
       }
       .song-key {
         font-family: "JetBrains Mono", monospace;
@@ -363,24 +378,7 @@
         border-radius: 7px;
         padding: 3px 8px;
         white-space: nowrap;
-      }
-      /* key + language stacked on the right of a row (language is a quiet hint) */
-      .row-keylang {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 3px;
         flex: none;
-      }
-      .song-langs {
-        font-family: "JetBrains Mono", monospace;
-        font-weight: 600;
-        font-size: 0.6rem;
-        color: var(--muted);
-        opacity: 0.85;
-        white-space: nowrap;
-        letter-spacing: 0.08em;
-        padding-right: 1px;
       }
 
       /* language tabs (only shown for multi-language songs) */
@@ -768,21 +766,25 @@
         right: 16px;
         bottom: calc(16px + env(safe-area-inset-bottom, 0));
         z-index: 35;
-        width: 40px;
-        height: 40px;
+        width: 52px;
+        height: 52px;
         border-radius: 50%;
         border: 1px solid var(--border);
         background: var(--surface);
         color: var(--text);
-        opacity: 0.85;
+        opacity: 0.92;
         cursor: pointer;
         display: grid;
         place-items: center;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
+        transition: transform 0.08s ease;
+      }
+      .totop:active {
+        transform: scale(0.92);
       }
       .totop svg {
-        width: 18px;
-        height: 18px;
+        width: 24px;
+        height: 24px;
       }
       .row-fav {
         appearance: none;
@@ -1495,7 +1497,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 29</span>
+          &middot; <span id="ver">build 30</span>
         </footer>
       </div>
 

@@ -1298,27 +1298,25 @@ const APP_NAME = "New Hope Band";
     const frag = document.createDocumentFragment();
     matches.forEach((s) => {
       const li = document.createElement("li");
+      // title with a quiet language hint right beneath it
+      const main = document.createElement("div");
+      main.className = "row-main";
       const t = document.createElement("span");
       t.className = "song-title";
       t.textContent = s.title;
-      li.appendChild(t);
-      // key on top, language initials as a quiet hint right beneath it
-      if (s.key || (s.langAbbrs && s.langAbbrs.length)) {
-        const kl = document.createElement("div");
-        kl.className = "row-keylang";
-        if (s.key) {
-          const k = document.createElement("span");
-          k.className = "song-key";
-          k.textContent = s.key;
-          kl.appendChild(k);
-        }
-        if (s.langAbbrs && s.langAbbrs.length) {
-          const lb = document.createElement("span");
-          lb.className = "song-langs";
-          lb.textContent = s.langAbbrs.join(" \u00B7 ");
-          kl.appendChild(lb);
-        }
-        li.appendChild(kl);
+      main.appendChild(t);
+      if (s.langAbbrs && s.langAbbrs.length) {
+        const lb = document.createElement("span");
+        lb.className = "song-langs";
+        lb.textContent = s.langAbbrs.join(" \u00B7 ");
+        main.appendChild(lb);
+      }
+      li.appendChild(main);
+      if (s.key) {
+        const k = document.createElement("span");
+        k.className = "song-key";
+        k.textContent = s.key;
+        li.appendChild(k);
       }
       if (listMode !== "set") {
         const fav = document.createElement("button");
@@ -2044,11 +2042,23 @@ const APP_NAME = "New Hope Band";
       updateFavBtn();
     });
     $("ed-restore").addEventListener("click", restorePrev);
-    // back-to-top (list view only)
+    // back-to-top (list view only) — quick custom ease (native "smooth" is slow
+    // and scales with distance; this is a fixed, snappy ~260ms)
     const totop = $("totop");
-    totop.addEventListener("click", () =>
-      window.scrollTo({ top: 0, behavior: "smooth" }),
-    );
+    function scrollToTopFast() {
+      const start = window.scrollY;
+      if (start <= 0) return;
+      const dur = 260;
+      const t0 = performance.now();
+      const ease = (p) => 1 - Math.pow(1 - p, 3); // easeOutCubic
+      const step = (now) => {
+        const p = Math.min(1, (now - t0) / dur);
+        window.scrollTo(0, Math.round(start * (1 - ease(p))));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+    totop.addEventListener("click", scrollToTopFast);
     window.addEventListener(
       "scroll",
       () => {
