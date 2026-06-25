@@ -125,6 +125,12 @@
         padding: 0;
         height: 100%;
       }
+      /* Always reserve room for the vertical scrollbar so the centered layout
+         (and the sticky header) never jumps sideways when the song/set list
+         grows tall enough to scroll. Harmless on phones (overlay scrollbars). */
+      html {
+        scrollbar-gutter: stable;
+      }
       body {
         background:
           radial-gradient(
@@ -947,7 +953,11 @@
         overscroll-behavior: contain;
         width: 100%;
         max-width: var(--maxw);
-        max-height: 96vh;
+        /* keep the sheet's top (Save/Delete/Close) below the iPhone notch /
+           Dynamic Island / status bar so those buttons stay tappable; dvh
+           tracks the real mobile viewport, vh is the older-browser fallback */
+        max-height: 90vh;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 10px);
         overflow-y: auto;
         background: var(--bg);
         border: 1px solid var(--border);
@@ -1324,7 +1334,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 15</span>
+          &middot; <span id="ver">build 18</span>
         </footer>
       </div>
 
