@@ -1033,6 +1033,50 @@ const APP_NAME = "New Hope Band";
   // ---- drag to reorder set rows (pointer events: touch + mouse) ----
   // The grabbed row lifts out of flow and follows the finger; a dashed
   // placeholder shows where it will drop.
+  // Shared float / placeholder helpers so both the grip handle (pointer) and a
+  // long-press anywhere on the row (touch) can drive the same reorder.
+  function dragSetup(li, clientY) {
+    const rect = li.getBoundingClientRect();
+    const offsetY = clientY - rect.top; // keep the row under the finger
+    const ph = document.createElement("li");
+    ph.className = "drag-placeholder";
+    ph.style.height = rect.height + "px";
+    listEl.insertBefore(ph, li);
+    li.classList.add("dragging");
+    li.style.position = "fixed";
+    li.style.left = rect.left + "px";
+    li.style.width = rect.width + "px";
+    li.style.top = clientY - offsetY + "px";
+    li.style.zIndex = "999";
+    return { ph, offsetY };
+  }
+  function dragMoveTo(li, ph, clientY, offsetY) {
+    li.style.top = clientY - offsetY + "px";
+    const sibs = [
+      ...listEl.querySelectorAll("li:not(.dragging):not(.drag-placeholder)"),
+    ];
+    let placed = false;
+    for (const sib of sibs) {
+      const r = sib.getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) {
+        listEl.insertBefore(ph, sib);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) listEl.appendChild(ph);
+  }
+  function dragDrop(li, ph) {
+    listEl.insertBefore(li, ph);
+    ph.remove();
+    li.classList.remove("dragging");
+    li.style.cssText = "";
+    const order = [...listEl.querySelectorAll("li")]
+      .map((el) => el.dataset.title)
+      .filter(Boolean);
+    saveSet(order);
+  }
+  // grip handle drag (mouse, and touch on the handle itself)
   function enableDrag(li, handle) {
     handle.style.touchAction = "none"; // don't scroll the page while grabbing
     handle.addEventListener("click", (e) => e.stopPropagation());
@@ -1042,58 +1086,95 @@ const APP_NAME = "New Hope Band";
       try {
         handle.setPointerCapture(e.pointerId);
       } catch {}
-
-      const rect = li.getBoundingClientRect();
-      const offsetY = e.clientY - rect.top; // keep the row under the finger
-      const ph = document.createElement("li");
-      ph.className = "drag-placeholder";
-      ph.style.height = rect.height + "px";
-      listEl.insertBefore(ph, li);
-
-      // float the real row
-      li.classList.add("dragging");
-      li.style.position = "fixed";
-      li.style.left = rect.left + "px";
-      li.style.width = rect.width + "px";
-      li.style.top = e.clientY - offsetY + "px";
-      li.style.zIndex = "999";
-
-      const onMove = (ev) => {
-        li.style.top = ev.clientY - offsetY + "px";
-        const sibs = [
-          ...listEl.querySelectorAll(
-            "li:not(.dragging):not(.drag-placeholder)",
-          ),
-        ];
-        let placed = false;
-        for (const sib of sibs) {
-          const r = sib.getBoundingClientRect();
-          if (ev.clientY < r.top + r.height / 2) {
-            listEl.insertBefore(ph, sib);
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) listEl.appendChild(ph);
-      };
+      const { ph, offsetY } = dragSetup(li, e.clientY);
+      const onMove = (ev) => dragMoveTo(li, ph, ev.clientY, offsetY);
       const onUp = () => {
         handle.removeEventListener("pointermove", onMove);
         handle.removeEventListener("pointerup", onUp);
         handle.removeEventListener("pointercancel", onUp);
-        // drop the row back into the placeholder's slot
-        listEl.insertBefore(li, ph);
-        ph.remove();
-        li.classList.remove("dragging");
-        li.style.cssText = "";
-        const order = [...listEl.querySelectorAll("li")]
-          .map((el) => el.dataset.title)
-          .filter(Boolean);
-        saveSet(order);
+        dragDrop(li, ph);
       };
       handle.addEventListener("pointermove", onMove);
       handle.addEventListener("pointerup", onUp);
       handle.addEventListener("pointercancel", onUp);
     });
+  }
+  // press-and-hold ANYWHERE on the row (touch) to pick it up and reorder.
+  // A short tap still opens the song; a quick drag still scrolls the list.
+  function enableHoldDrag(li) {
+    let timer = null,
+      sx = 0,
+      sy = 0,
+      ly = 0,
+      mode = false,
+      ph = null,
+      offsetY = 0;
+    const clearTimer = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
+    li.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length !== 1) {
+          clearTimer();
+          return;
+        }
+        // taps on the row's own buttons shouldn't start a drag
+        if (e.target.closest(".row-remove, .row-drag, .row-add, .row-fav")) return;
+        const t = e.touches[0];
+        sx = t.clientX;
+        sy = t.clientY;
+        ly = t.clientY;
+        mode = false;
+        clearTimer();
+        timer = setTimeout(() => {
+          mode = true;
+          const r = dragSetup(li, ly);
+          ph = r.ph;
+          offsetY = r.offsetY;
+          if (navigator.vibrate) navigator.vibrate(15); // haptic "picked up"
+        }, 350);
+      },
+      { passive: true },
+    );
+    li.addEventListener(
+      "touchmove",
+      (e) => {
+        const t = e.touches[0];
+        if (!t) return;
+        ly = t.clientY;
+        if (mode) {
+          e.preventDefault(); // hijack the page scroll while dragging
+          dragMoveTo(li, ph, t.clientY, offsetY);
+          return;
+        }
+        // moved before the hold fired -> treat it as a scroll, cancel the pickup
+        if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) {
+          clearTimer();
+        }
+      },
+      { passive: false },
+    );
+    const end = () => {
+      clearTimer();
+      if (mode) {
+        mode = false;
+        if (ph) {
+          dragDrop(li, ph);
+          ph = null;
+        }
+        // swallow the click that follows touchend so the song doesn't open
+        li._suppressClick = true;
+        setTimeout(() => {
+          li._suppressClick = false;
+        }, 80);
+      }
+    };
+    li.addEventListener("touchend", end);
+    li.addEventListener("touchcancel", end);
   }
   function clearSet() {
     saveSet([]);
@@ -1244,18 +1325,23 @@ const APP_NAME = "New Hope Band";
           renderList();
         });
         tools.appendChild(rm);
-        // drag handle — only when unfiltered, so order maps to the whole set
+        // reorder — only when unfiltered, so order maps to the whole set.
+        // Drag the grip (mouse) OR press-and-hold anywhere on the row (touch).
         if (!q) {
           const drag = document.createElement("button");
           drag.className = "row-drag";
-          drag.innerHTML = "&#8942;&#8942;"; // ⠿-style grip
+          drag.innerHTML = ICON_GRIP;
           drag.setAttribute("aria-label", "Drag to reorder");
           enableDrag(li, drag);
+          enableHoldDrag(li);
           tools.appendChild(drag);
         }
         li.appendChild(tools);
       }
-      li.addEventListener("click", () => openSong(s));
+      li.addEventListener("click", () => {
+        if (li._suppressClick) return; // just finished a hold-to-reorder
+        openSong(s);
+      });
       frag.appendChild(li);
     });
     listEl.appendChild(frag);
@@ -1433,6 +1519,8 @@ const APP_NAME = "New Hope Band";
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   const ICON_STAR =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.3 17 14 18.5 21 12 17.3 5.5 21 7 14 2 9.3 9 9"/></svg>';
+  const ICON_GRIP =
+    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 
   function switchVersion(i) {
     vi = i;
