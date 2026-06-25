@@ -1179,29 +1179,16 @@ const APP_NAME = "New Hope Band";
     const frag = document.createDocumentFragment();
     matches.forEach((s) => {
       const li = document.createElement("li");
-      const main = document.createElement("div");
-      main.className = "row-main";
       const t = document.createElement("span");
       t.className = "song-title";
       t.textContent = s.title;
-      main.appendChild(t);
-      // meta line under the title: language(s) + tags
-      const meta = document.createElement("span");
-      meta.className = "row-meta";
+      li.appendChild(t);
       if (s.langs.length > 1) {
         const lb = document.createElement("span");
         lb.className = "song-langs";
         lb.textContent = s.langs.map(abbr).join(" \u00B7 ");
-        meta.appendChild(lb);
+        li.appendChild(lb);
       }
-      (s.tags || []).forEach((tg) => {
-        const tagEl = document.createElement("span");
-        tagEl.className = "song-tag";
-        tagEl.textContent = tg;
-        meta.appendChild(tagEl);
-      });
-      if (meta.childNodes.length) main.appendChild(meta);
-      li.appendChild(main);
       if (s.key) {
         const k = document.createElement("span");
         k.className = "song-key";
@@ -1322,8 +1309,6 @@ const APP_NAME = "New Hope Band";
     $("tab-all").classList.toggle("active", mode === "all");
     $("tab-set").classList.toggle("active", mode === "set");
     $("set-bar").classList.toggle("hidden", mode !== "set");
-    // single-column list (no grid) in Set mode so drag-to-reorder is clear
-    document.documentElement.classList.toggle("mode-set", mode === "set");
     // clear any leftover search so the tab shows its full list (a stale filter
     // could otherwise hide newly-added songs until a reload)
     searchEl.value = "";
@@ -1688,10 +1673,12 @@ const APP_NAME = "New Hope Band";
     if (!btn || current === null) return;
     const inSet = setHas(songs[current].title);
     btn.classList.toggle("on", inSet);
-    // header icon-only toggle (mirrors the favorite star)
-    btn.innerHTML = inSet ? ICON_CHECK : ICON_PLUS;
-    btn.title = inSet ? "In set — tap to remove" : "Add to set";
-    btn.setAttribute("aria-label", btn.title);
+    btn.innerHTML =
+      (inSet ? ICON_CHECK : ICON_PLUS) +
+      "<span>" +
+      (inSet ? "In set" : "Set") +
+      "</span>";
+    btn.title = inSet ? "In set" : "Add to set";
   }
   function toggleSet() {
     if (current === null) return;
@@ -1849,7 +1836,7 @@ const APP_NAME = "New Hope Band";
     const sysLight =
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: light)").matches;
-    applyTheme(store.get("theme", "light"));
+    applyTheme(store.get("theme", sysLight ? "light" : "dark"));
     applySize();
     applyChords();
     updateSetCount();

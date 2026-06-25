@@ -10,7 +10,7 @@
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#f6f7fb" />
+    <meta name="theme-color" content="#0d0e12" />
     <meta name="color-scheme" content="light dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -22,39 +22,17 @@
     <link rel="apple-touch-icon" href="icons/icon-180.png" />
     <link rel="icon" href="icons/icon-192.png" />
 
-    <!-- Fonts: Inter for UI + body (Latin + Cyrillic match), JetBrains Mono for chords -->
+    <!-- Fonts: Inter for a clean modern UI + body, JetBrains Mono for chords -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap"
       rel="stylesheet"
     />
 
     <style>
       :root {
-        /* Light is primary — cool off-white + deep indigo accent */
-        --bg: #f6f7fb;
-        --bg-grad: #eceef6;
-        --surface: #ffffff;
-        --surface-2: #eff1f7;
-        --border: #e5e8f0;
-        --text: #16181f;
-        --muted: #6a7080;
-        --accent: #4f46e5; /* chords: indigo */
-        --accent-dim: #4338ca;
-        --accent-soft: rgba(79, 70, 229, 0.07);
-        --on-accent: #ffffff;
-        --chorus: var(--accent-soft);
-        --shadow: 0 1px 3px rgba(20, 24, 40, 0.04), 0 6px 18px rgba(20, 24, 40, 0.05);
-        --shadow-lg: 0 18px 50px rgba(20, 24, 40, 0.18);
-        --radius: 20px;
-        --maxw: 820px;
-        --t-fast: 0.12s;
-        --t-med: 0.2s;
-        --ease: cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      [data-theme="dark"] {
-        /* Dark — cool near-black + periwinkle accent (stage / low light) */
+        /* Dark — derived from the logo: cool near-black + periwinkle accent */
         --bg: #0d0e12;
         --bg-grad: #15171f;
         --surface: #15171e;
@@ -62,13 +40,31 @@
         --border: #262a36;
         --text: #e9ebf2;
         --muted: #8b91a3;
-        --accent: #aab6f7;
+        --accent: #aab6f7; /* chords: soft periwinkle */
         --accent-dim: #7e8ce0;
         --accent-soft: rgba(143, 156, 240, 0.13);
-        --on-accent: #11131c;
+        --on-accent: #11131c; /* text on an accent-filled surface */
         --chorus: var(--accent-soft);
-        --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.28);
-        --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
+        --radius: 14px;
+        --maxw: 760px;
+        --t-fast: 0.12s;
+        --t-med: 0.2s;
+        --ease: cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      [data-theme="light"] {
+        /* Light — cool off-white + deep indigo accent */
+        --bg: #f6f7fb;
+        --bg-grad: #eceef6;
+        --surface: #ffffff;
+        --surface-2: #eef0f6;
+        --border: #e3e6ef;
+        --text: #1a1c24;
+        --muted: #666c7d;
+        --accent: #4f46e5; /* chords: indigo */
+        --accent-dim: #4338ca;
+        --accent-soft: rgba(79, 70, 229, 0.07);
+        --on-accent: #ffffff;
+        --chorus: var(--accent-soft);
       }
 
       * {
@@ -178,14 +174,13 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 18px 0 8px;
+        padding: 14px 0 10px;
       }
       .brand {
         font-family: "Inter", sans-serif;
         font-weight: 800;
-        font-size: 1.6rem;
-        letter-spacing: -0.03em;
-        line-height: 1.1;
+        font-size: 1.3rem;
+        letter-spacing: -0.02em;
         margin: 0;
         flex: 1;
         cursor: pointer;
@@ -195,22 +190,19 @@
         border: 1px solid var(--border);
         background: var(--surface);
         color: var(--text);
-        width: 42px;
-        height: 42px;
-        border-radius: 14px;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
         font-size: 1.05rem;
         cursor: pointer;
         display: grid;
         place-items: center;
-        box-shadow: var(--shadow);
         transition:
           transform 0.08s ease,
-          background 0.15s ease,
-          border-color 0.15s ease;
+          background 0.15s ease;
       }
       .iconbtn:active {
         transform: scale(0.92);
-        background: var(--surface-2);
       }
       .iconbtn svg {
         width: 18px;
@@ -219,128 +211,91 @@
 
       .search-wrap {
         position: relative;
-        padding-bottom: 14px;
+        padding-bottom: 12px;
       }
       #search {
         width: 100%;
-        padding: 15px 16px 15px 48px;
-        font-size: 1.05rem;
+        padding: 12px 14px 12px 40px;
+        font-size: 1rem;
         font-family: inherit;
         color: var(--text);
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 16px;
-        box-shadow: var(--shadow);
+        border-radius: 12px;
         outline: none;
-        transition:
-          border-color 0.15s ease,
-          box-shadow 0.15s ease;
-      }
-      #search::placeholder {
-        color: var(--muted);
       }
       #search:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-soft);
+        border-color: var(--accent-dim);
       }
       .search-wrap svg {
         position: absolute;
-        left: 16px;
-        top: 15px;
+        left: 13px;
+        top: 13px;
         opacity: 0.5;
       }
 
-      /* ---------- song list (editorial index) ---------- */
+      /* ---------- song list ---------- */
       .count {
         color: var(--muted);
-        font-size: 0.72rem;
-        letter-spacing: 0.12em;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        font-weight: 600;
-        margin: 6px 4px 10px;
+        margin: 4px 2px 10px;
       }
       ul.list {
         list-style: none;
-        margin: 0 auto 48px;
-        padding: 0;
-        max-width: 760px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        overflow: hidden;
+        margin: 0;
+        padding: 0 0 40px;
       }
       ul.list li {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 15px 18px;
-        border-bottom: 1px solid var(--border);
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: 12px;
+        margin-bottom: 9px;
         cursor: pointer;
-        transition: background 0.12s ease;
-      }
-      ul.list li:last-child {
-        border-bottom: none;
-      }
-      ul.list li:hover {
-        background: var(--accent-soft);
+        transition:
+          transform 0.08s ease,
+          border-color 0.15s ease;
       }
       ul.list li:active {
-        background: var(--surface-2);
+        transform: scale(0.99);
       }
-      .row-main {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
+      ul.list li:hover {
+        border-color: var(--accent-dim);
       }
       .song-title {
         font-family: "Inter", sans-serif;
         font-weight: 600;
-        font-size: 1.04rem;
+        font-size: 1.08rem;
         letter-spacing: -0.01em;
-        color: var(--text);
-        line-height: 1.25;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-      .row-meta {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px;
-      }
-      .song-langs {
-        font-family: "JetBrains Mono", monospace;
-        font-weight: 700;
-        font-size: 0.64rem;
-        letter-spacing: 0.04em;
-        color: var(--accent-dim);
-      }
-      .song-tag {
-        font-size: 0.68rem;
-        font-weight: 500;
-        color: var(--muted);
-        background: var(--surface-2);
-        border-radius: 999px;
-        padding: 1px 9px;
+        flex: 1;
+        min-width: 0; /* let long titles shrink instead of pushing buttons off */
       }
       .song-key {
         font-family: "JetBrains Mono", monospace;
         font-weight: 700;
-        font-size: 0.74rem;
+        font-size: 0.78rem;
         color: var(--accent);
-        background: var(--accent-soft);
-        border-radius: 9px;
-        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 3px 8px;
         white-space: nowrap;
-        flex: none;
       }
-      /* row actions (favorite + add-to-set) stay visible at all times on
-         every device so they're always one tap away */
+      .song-langs {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: 0.68rem;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 3px 7px;
+        white-space: nowrap;
+        letter-spacing: 0.03em;
+      }
 
       /* language tabs (only shown for multi-language songs) */
       .lang-tabs {
@@ -457,7 +412,7 @@
         border: none;
         background: var(--accent);
         color: var(--on-accent);
-        box-shadow: 0 10px 28px rgba(79, 70, 229, 0.42);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
         cursor: pointer;
         display: grid;
         place-items: center;
@@ -494,8 +449,8 @@
         padding: 12px;
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 22px;
-        box-shadow: var(--shadow-lg);
+        border-radius: 16px;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
         transform-origin: bottom right;
         pointer-events: auto;
         transition:
@@ -525,9 +480,9 @@
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--text);
-        height: 42px;
-        min-width: 42px;
-        border-radius: 13px;
+        height: 40px;
+        min-width: 40px;
+        border-radius: 10px;
         font-size: 1.2rem;
         line-height: 1;
         cursor: pointer;
@@ -708,17 +663,15 @@
       .row-add {
         appearance: none;
         flex: none;
-        width: 36px;
-        height: 36px;
-        border-radius: 11px;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--muted);
         font-size: 1.05rem;
         line-height: 1;
         cursor: pointer;
-        display: grid;
-        place-items: center;
         transition: transform 0.08s ease;
       }
       .row-add.in {
@@ -757,15 +710,13 @@
       .row-fav {
         appearance: none;
         flex: none;
-        width: 36px;
-        height: 36px;
-        border-radius: 11px;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--muted);
         cursor: pointer;
-        display: grid;
-        place-items: center;
       }
       .row-fav svg {
         width: 16px;
@@ -884,13 +835,8 @@
       .set-bar {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin: 0 0 14px;
-        padding: 8px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        box-shadow: var(--shadow);
+        gap: 6px;
+        margin: 0 0 12px;
       }
       #set-select {
         flex: 1;
@@ -916,15 +862,11 @@
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--text);
-        font-family: "Inter", sans-serif;
-        font-size: 0.84rem;
-        font-weight: 600;
+        font-size: 1rem;
         line-height: 1;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
+        display: grid;
+        place-items: center;
       }
       .setbtn:active {
         background: var(--accent);
@@ -995,9 +937,7 @@
         position: fixed;
         inset: 0;
         z-index: 60;
-        background: rgba(16, 18, 27, 0.5);
-        -webkit-backdrop-filter: blur(3px);
-        backdrop-filter: blur(3px);
+        background: rgba(0, 0, 0, 0.55);
         display: grid;
         place-items: end center;
         padding: 0;
@@ -1006,53 +946,29 @@
       .editor-card {
         overscroll-behavior: contain;
         width: 100%;
-        max-width: 720px;
-        /* leave the iPhone notch / Dynamic Island clear so the Save/Close
-           header is never pushed up under it (dvh tracks the mobile UI) */
-        max-height: 94vh;
-        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 10px);
+        max-width: var(--maxw);
+        max-height: 96vh;
         overflow-y: auto;
         background: var(--bg);
         border: 1px solid var(--border);
-        border-radius: var(--radius) var(--radius) 0 0;
-        box-shadow: var(--shadow-lg);
-        padding: 0 18px calc(16px + env(safe-area-inset-bottom, 0));
+        border-radius: 18px 18px 0 0;
+        padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0));
         display: flex;
         flex-direction: column;
         gap: 10px;
-      }
-      /* on a laptop the editor is a centered modal, not a bottom sheet */
-      @media (min-width: 680px) {
-        .editor {
-          place-items: center;
-          padding: 28px;
-        }
-        .editor-card {
-          border-radius: 18px;
-          max-height: 90vh;
-        }
       }
       .editor-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        padding-top: 14px;
       }
       .editor-head strong {
         font-size: 1.1rem;
       }
       /* title + Save/Delete sit at the top of the editor (not sticky) */
-      /* keep the title + Save/Delete/Close pinned to the top while the body
-         scrolls (fixes the buttons scrolling out of reach in a long song) */
       .editor-head-sticky {
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        background: var(--bg);
-        margin: 0 -18px 8px;
-        /* extra top breathing room on notched phones */
-        padding: max(14px, env(safe-area-inset-top, 0px)) 18px 14px;
+        padding-bottom: 8px;
         border-bottom: 1px solid var(--border);
       }
       .ed-head-actions {
@@ -1233,19 +1149,6 @@
       #fav-btn.on svg {
         fill: #f5b301;
       }
-      /* always-visible song-view actions (add-to-set + favorite) */
-      .song-header-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex: none;
-      }
-      /* set toggle in the song header — accent fill once the song is in the set */
-      #set-btn.on {
-        color: var(--on-accent);
-        background: var(--accent);
-        border-color: var(--accent);
-      }
       /* stage mode: big text, minimal chrome */
       html.stage #song-view header,
       html.stage .keyline,
@@ -1260,47 +1163,6 @@
         background: var(--accent);
         color: var(--on-accent);
         border-color: var(--accent);
-      }
-
-      /* ---------- laptop / wide layout ---------- */
-      @media (min-width: 760px) {
-        :root {
-          --maxw: 1120px;
-        }
-        #app {
-          padding: 0 28px;
-        }
-        .brand {
-          font-size: 1.75rem;
-        }
-        /* center the list column so header + search + rows line up */
-        #list-view {
-          max-width: 760px;
-          margin: 0 auto;
-        }
-        /* the set toolbar reads as a labelled "set manager" on wider screens */
-        .set-bar {
-          flex-wrap: wrap;
-        }
-        .set-bar .setbtn {
-          width: auto;
-          padding: 0 13px;
-        }
-        #set-new::after {
-          content: "New";
-        }
-        #set-rename::after {
-          content: "Rename";
-        }
-        #set-delete::after {
-          content: "Delete";
-        }
-        #set-share::after {
-          content: "Share";
-        }
-        #set-import::after {
-          content: "Import";
-        }
       }
 
       /* print / save-as-PDF: only the current song, in black on white */
@@ -1462,7 +1324,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 17</span>
+          &middot; <span id="ver">build 15</span>
         </footer>
       </div>
 
@@ -1476,19 +1338,11 @@
               </svg>
               <span>Songs</span>
             </button>
-            <div class="song-header-actions">
-              <button class="iconbtn" id="set-btn" aria-label="Add to set" title="Add to set">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </button>
-              <button class="iconbtn" id="fav-btn" aria-label="Favorite" title="Favorite">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="12 2 15 9 22 9.3 17 14 18.5 21 12 17.3 5.5 21 7 14 2 9.3 9 9" />
-                </svg>
-              </button>
-            </div>
+            <button class="iconbtn" id="fav-btn" aria-label="Favorite" title="Favorite">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15 9 22 9.3 17 14 18.5 21 12 17.3 5.5 21 7 14 2 9.3 9 9" />
+              </svg>
+            </button>
           </div>
         </header>
         <h1 id="song-title"></h1>
@@ -1563,6 +1417,18 @@
                 <circle cx="18" cy="16" r="3" />
               </svg>
               <span>Chords</span>
+            </button>
+            <button
+              class="fbtn flex"
+              id="set-btn"
+              aria-label="Add to set"
+              title="Add to set"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>Set</span>
             </button>
           </div>
 
