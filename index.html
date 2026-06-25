@@ -118,6 +118,33 @@
           transform: none;
         }
       }
+      /* All <-> Set tab switch (tap or swipe) */
+      @keyframes tabInRight {
+        from {
+          opacity: 0;
+          transform: translateX(22px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes tabInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-22px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .list-anim-next {
+        animation: tabInRight var(--t-med) var(--ease);
+      }
+      .list-anim-prev {
+        animation: tabInLeft var(--t-med) var(--ease);
+      }
       @media (prefers-reduced-motion: reduce) {
         *,
         *::before,
@@ -302,6 +329,10 @@
         border-radius: 12px;
         cursor: pointer;
         transition: background 0.12s ease;
+        /* press-and-hold reorders the row — never start a text selection */
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
       ul.list li:last-child {
         border-bottom: none;
@@ -1441,7 +1472,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 24</span>
+          &middot; <span id="ver">build 25</span>
         </footer>
       </div>
 

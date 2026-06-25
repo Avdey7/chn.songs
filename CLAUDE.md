@@ -40,8 +40,24 @@ A worship songbook PWA for a church team. Static site, no build step. Author: Av
 - Bilingual: English version shown first.
 - `chordproToSheet()` reverses ChordPro → friendly sheet for editing old songs.
 
+## Design system (UI)
+- **Font:** `Inter` for all UI + body (covers Latin **and** Cyrillic so English/Ukrainian match); `JetBrains Mono` for chords/keys/badges. (Replaced Hanken Grotesk, which lacked Cyrillic.)
+- **Themes:** light = warm paper/ivory; dark = cool near-black. Indigo (light) / periwinkle (dark) accent. Single **flat** `--bg` color (no gradient — it used to read as bands). `theme-color` meta updated in `applyTheme()`.
+- **Duotone accent:** `--accent-grad` (indigo→violet) on the FAB, progress bar, and active All/Set + language tabs.
+- **Glassmorphism:** `--glass-bg`/`--glass-border`/`--glass-blur` tokens (frosted translucent + blur) on the header, FAB control panel, phone bottom-nav, and modal backdrops.
+- **Flat/borderless list:** rows are one continuous column with hairline dividers (no per-row cards). No index numbers.
+- **Pills:** search, icon buttons, control/row/editor buttons are fully rounded; circular buttons center their glyphs (`grid` + `line-height:0`).
+- **Stage mode:** forces a true-black OLED palette regardless of theme (`html.stage` var overrides).
+- `scrollbar-gutter: stable` on `<html>` so the centered layout never shifts when the list grows tall enough to scroll.
+- Editor bottom-sheet height is capped with `dvh` minus `safe-area-inset-top` so Save/Close clear the iPhone notch.
+
+## Layout / navigation
+- **Phone (≤640px):** All/Set tabs dock as a fixed bottom-nav bar (moved OUT of `<header>` because the header's `backdrop-filter` traps `position:fixed`). **Swipe left/right on the list** switches All↔Set (animated slide); tap also works.
+- **Search:** always-visible custom clear (×) button (`#search-clear`), toggled in JS on input.
+- **Set reorder:** drag the grip handle (mouse), OR **press-and-hold anywhere on a row** (touch). Hold-drag floats a *clone* while the real row stays in the DOM as a hidden traveling gap (avoids iOS `touchcancel`); rows are `user-select:none`.
+
 ## Features
-search; tag chips + filter; favorites (local, row star + ★ filter); named sets (per service) with share link+QR + import; swipe between songs (touch only); transpose + admin "save key"; size +/−/reset + pinch; autoscroll; chords on/off; stage mode; PDF print (2-col, no headers); in-app add/edit/delete (global, bilingual); restore previous version; back-to-top; remembers open song + tab on refresh; editor closes on back gesture.
+search; tag chips + filter; favorites (local, row star + ★ filter); named sets (per service) with share link+QR + import; swipe between songs; swipe between All/Set tabs (menu); transpose + admin "save key"; size +/−/reset + pinch; autoscroll; chords on/off; stage mode (OLED); PDF print (2-col, no headers); in-app add/edit/delete (global, bilingual); restore previous version; always-visible add-to-set + favorite in the song header; back-to-top; remembers open song + tab on refresh; editor closes on back gesture.
 
 ## localStorage keys
 sets, activeSet, globalsongs, usersongs, favs, opensong, listmode, size, scrollspeed, theme, chords, sb_token/sb_exp/sb_email/sb_refresh.

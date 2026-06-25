@@ -1428,7 +1428,10 @@ const APP_NAME = "New Hope Band";
       });
   }
 
+  let listInited = false;
   function setListMode(mode) {
+    const changed = listInited && mode !== listMode;
+    listInited = true;
     listMode = mode;
     store.set("listmode", mode); // remembered across refresh
     $("tab-all").classList.toggle("active", mode === "all");
@@ -1445,6 +1448,13 @@ const APP_NAME = "New Hope Band";
     if (mode === "set") renderSetBar();
     updateSetCount();
     renderList();
+    // slide/fade the list when actually switching tabs (Set = from the right,
+    // All = from the left), so tap and swipe both feel directional
+    if (changed) {
+      listEl.classList.remove("list-anim-next", "list-anim-prev");
+      void listEl.offsetWidth; // restart the animation
+      listEl.classList.add(mode === "set" ? "list-anim-next" : "list-anim-prev");
+    }
   }
 
   function abbr(lang) {
