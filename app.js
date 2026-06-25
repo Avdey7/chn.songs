@@ -25,8 +25,7 @@ const APP_NAME = "New Hope Band";
     keylineEl = $("keyline"),
     sheetEl = $("sheet");
   const keyNowEl = $("key-now"),
-    langTabsEl = $("lang-tabs"),
-    chipsEl = $("section-chips");
+    langTabsEl = $("lang-tabs");
 
   // ---- state ----
   let songs = []; // normalized songs (see normalize())
@@ -1420,7 +1419,6 @@ const APP_NAME = "New Hope Band";
       "hidden",
       delta === 0 || current === null || !(songs[current].uid || "").startsWith("g:"),
     );
-    buildChips();
   }
 
   const ICON_PLAY =
@@ -1433,27 +1431,6 @@ const APP_NAME = "New Hope Band";
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   const ICON_STAR =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.3 17 14 18.5 21 12 17.3 5.5 21 7 14 2 9.3 9 9"/></svg>';
-
-  // ---- section chips: jump-to from each {comment: ...} label ----
-  function buildChips() {
-    chipsEl.innerHTML = "";
-    const comments = sheetEl.querySelectorAll(".comment");
-    if (comments.length < 2) {
-      chipsEl.classList.add("hidden");
-      return;
-    }
-    chipsEl.classList.remove("hidden");
-    comments.forEach((c) => {
-      const b = document.createElement("button");
-      b.className = "chip";
-      b.textContent = c.textContent.trim();
-      b.addEventListener("click", () => {
-        closeControls();
-        c.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      chipsEl.appendChild(b);
-    });
-  }
 
   function switchVersion(i) {
     vi = i;

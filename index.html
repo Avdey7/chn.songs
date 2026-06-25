@@ -534,8 +534,7 @@
         text-align: center;
         color: var(--accent);
       }
-      .fab-panel .lang-tabs,
-      .fab-panel .section-chips {
+      .fab-panel .lang-tabs {
         margin: 0;
       }
 
@@ -633,19 +632,6 @@
         }
       }
 
-      /* section chips — jump to a {comment:} label; scrolls horizontally */
-      .section-chips {
-        display: flex;
-        gap: 6px;
-        width: 100%;
-        overflow-x: auto;
-        padding-bottom: 2px;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-      }
-      .section-chips::-webkit-scrollbar {
-        display: none;
-      }
       .chip {
         flex: none;
         appearance: none;
@@ -1334,7 +1320,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 18</span>
+          &middot; <span id="ver">build 19</span>
         </footer>
       </div>
 
@@ -1365,7 +1351,6 @@
       <div class="fab-wrap hidden" id="fab-wrap">
         <div class="fab-panel" id="fab-panel">
           <div class="lang-tabs hidden" id="lang-tabs"></div>
-          <div class="section-chips hidden" id="section-chips"></div>
 
           <div class="fab-row">
             <span class="fab-lbl">Key</span>
