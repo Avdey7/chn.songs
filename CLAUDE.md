@@ -6,13 +6,14 @@ A worship songbook PWA for a church team. Static site, no build step. Author: Av
 - **GitHub Pages**, auto-deploys from branch **`claude/kind-mendel-wSAqa`** (develop & push here).
 - After ANY change: bump `CACHE_VERSION` in `service-worker.js` AND the build stamp `#ver` in `index.html` (footer, "build N"). The footer build number is how the user verifies the live version (GitHub Pages CDN + service worker can serve stale files ~10 min).
 - Commit + push every change to the branch. Validate JS with `node --check app.js`.
+- **Update this CLAUDE.md with every change**: keep the docs above accurate AND add a line to the Changelog at the bottom (build N — what/why). It's the project's history + knowledge base.
 
 ## Files
 - `index.html` — all markup + CSS (single `<style>`). Views: list (#list-view) and song (#song-view); overlays: #editor, #login, #share; floating controls bubble #fab-wrap.
 - `app.js` — all logic, one big IIFE. No framework. `$ = getElementById`.
 - `convert-core.js` — "chords above lyrics" → ChordPro converter (used by app + converter.html).
 - `songs.js` — `window.SONGS` array; now only an **offline seed/fallback**. Source of truth is Supabase.
-- `service-worker.js` — network-first for app shell (cache:'no-store'), cache-first for vendor/icons.
+- `service-worker.js` — network-first for app shell (cache:'no-store'), cache-first for vendor/icons/songs.js (songs.js is just the offline seed; a version bump re-precaches it).
 - `converter.html` — standalone admin tool (paste sheet → ChordPro block, incl. bilingual).
 - `migrate.sql` — recreates the Supabase `songs` table + loads songs.js. Plus run these ALTERs:
   `alter table public.songs add column if not exists num serial;`
@@ -65,3 +66,8 @@ sets, activeSet, globalsongs, usersongs, favs, opensong, listmode, size, scrolls
 ## Conventions
 - Keep it simple, mobile-first, offline-friendly, free. Save tokens: small focused edits.
 - Bump build stamp + SW version on every change; commit + push to the claude branch.
+- Update the Changelog below (and any stale docs above) with every change.
+
+## Changelog
+- **build 34** (2026-07-06) — Perf + deploy visibility: `songs.js` served cache-first by the SW (saves ~135 KB per online load; it's only the offline seed, a `CACHE_VERSION` bump re-precaches it); `preconnect` to Supabase in `<head>` (faster first catalog fetch); "App updated — tap to reload" glass toast shown on SW `controllerchange` (skipped on first visit, auto-hides in 15 s, sits above the phone bottom-nav, z-index 70). Toast CSS lives at the end of the `<style>` block; logic in the inline SW-registration script at the end of `<body>`.
+- **builds ≤33** — see git history (`git log --oneline`): flat/borderless list, glassmorphism chrome, bottom-nav All/Set tabs with swipe, press-and-hold set reorder, stage mode, bilingual editor, sets + share QR, favorites, tags, transpose/save-key, autoscroll, PDF print, Supabase catalog with auth + restore-previous.
