@@ -4,7 +4,7 @@
    songs show up on reload without any cache-clearing. When OFFLINE it serves
    the last cached copy. You no longer need to bump the version every time you
    add a song; only bump it if you change the icons or the chordsheetjs file. */
-const CACHE_VERSION = "songbook-v33";
+const CACHE_VERSION = "songbook-v34";
 
 const PRECACHE = [
   ".", "index.html", "app.js", "songs.js", "convert-core.js", "manifest.json",
@@ -13,8 +13,10 @@ const PRECACHE = [
   "icons/icon-maskable-512.png", "icons/icon-180.png"
 ];
 
-// these never change between updates -> serve from cache (fast + offline)
-const STATIC = ["vendor/chordsheetjs.min.js", "icons/"];
+// these never change between updates -> serve from cache (fast + offline).
+// songs.js is only the offline seed (Supabase is the source of truth), so it's
+// safe to cache-first too; a CACHE_VERSION bump re-precaches a fresh copy.
+const STATIC = ["vendor/chordsheetjs.min.js", "songs.js", "icons/"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

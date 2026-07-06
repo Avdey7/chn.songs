@@ -25,6 +25,8 @@
     <!-- Fonts: Inter for a clean modern UI + body, JetBrains Mono for chords -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- warm up the Supabase connection so the first catalog fetch is faster -->
+    <link rel="preconnect" href="https://rryafqahqkgnwfxpvnbt.supabase.co" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap"
       rel="stylesheet"
@@ -1396,6 +1398,51 @@
           border-left: 3px solid #000;
         }
       }
+
+      /* "app updated" toast: appears when a new service worker takes over */
+      #upd-toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(24px + env(safe-area-inset-bottom, 0));
+        transform: translate(-50%, 16px);
+        z-index: 70;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 18px;
+        border: 1px solid var(--glass-border);
+        border-radius: 999px;
+        background: var(--glass-bg);
+        -webkit-backdrop-filter: var(--glass-blur);
+        backdrop-filter: var(--glass-blur);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        line-height: 1.2;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+        cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity var(--t-med) var(--ease),
+          transform var(--t-med) var(--ease);
+      }
+      #upd-toast.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-50%, 0);
+      }
+      #upd-toast b {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      @media (max-width: 640px) {
+        /* clear the docked bottom-nav on phones */
+        #upd-toast {
+          bottom: calc(78px + env(safe-area-inset-bottom, 0));
+        }
+      }
     </style>
   </head>
   <body>
@@ -1502,7 +1549,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 33</span>
+          &middot; <span id="ver">build 34</span>
         </footer>
       </div>
 
@@ -1758,9 +1805,29 @@
     <script src="app.js"></script>
     <script>
       if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () =>
-          navigator.serviceWorker.register("service-worker.js"),
-        );
+        window.addEventListener("load", () => {
+          // remember whether a SW was already controlling: controllerchange on
+          // the very first visit must not show the "updated" toast
+          var hadController = !!navigator.serviceWorker.controller;
+          navigator.serviceWorker.register("service-worker.js");
+          if (!hadController) return;
+          var shown = false;
+          navigator.serviceWorker.addEventListener("controllerchange", function () {
+            if (shown) return;
+            shown = true;
+            var t = document.createElement("button");
+            t.id = "upd-toast";
+            t.type = "button";
+            t.innerHTML = "App updated &mdash; <b>tap to reload</b>";
+            t.addEventListener("click", function () { location.reload(); });
+            document.body.appendChild(t);
+            requestAnimationFrame(function () { t.classList.add("show"); });
+            setTimeout(function () {
+              t.classList.remove("show");
+              setTimeout(function () { t.remove(); }, 300);
+            }, 15000);
+          });
+        });
       }
     </script>
   </body>
