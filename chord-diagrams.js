@@ -29,6 +29,7 @@
     if (q === "6") return "6";
     if (q === "m6" || q === "min6") return "m6";
     if (q === "add9" || q === "2") return "add9";
+    if (q === "5") return "5";
     if (q === "m7b5" || q === "m7♭5" || q === "ø" || q === "ø7" || q === "h7" || q === "h") return "m7b5";
     if (q === "dim" || q === "°" || q === "o") return "dim7"; // played as dim7
     if (q === "dim7" || q === "°7" || q === "o7") return "dim7";
@@ -96,7 +97,42 @@
     m7b5: [{ str: 5, rel: [-9, 0, 1, 0, 1, -9], rootRel: 0, barre: false }],
     dim7: [{ str: 5, rel: [-9, 1, 2, 0, 2, -9], rootRel: 1, barre: false }],
     aug: [{ str: 5, rel: [-9, 2, 1, 0, 0, -9], rootRel: 2, barre: false }],
-    add9: [], // open C only (movable add9 shapes are awkward)
+    add9: [
+      // worship "2" chord: R-5-R-9-5 (no 3rd), the usual grip for C2/D2/E2…
+      { str: 5, rel: [-9, 0, 2, 2, 0, 0], rootRel: 0, barre: true },
+      // full add9 barre with the 3rd (Eadd9 form) for roots high on the A string
+      { str: 6, rel: [0, 2, 2, 1, 0, 2], rootRel: 0, barre: true },
+    ],
+    5: [
+      { str: 6, rel: [0, 2, 2, -9, -9, -9], rootRel: 0, barre: false },
+      { str: 5, rel: [-9, 0, 2, 2, -9, -9], rootRel: 0, barre: false },
+    ],
+  };
+
+  // common slash-chord voicings, keyed "rootSemi|qual|bassSemi"
+  const SLASH = {
+    "0|maj|4": [0, 3, 2, 0, 1, 0], // C/E
+    "0|maj|7": [3, 3, 2, 0, 1, 0], // C/G
+    "0|maj|11": [-1, 2, 2, 0, 1, 0], // C/B
+    "2|maj|6": [2, 0, 0, 2, 3, 2], // D/F#
+    "2|maj|9": [-1, 0, 0, 2, 3, 2], // D/A
+    "4|maj|8": [4, 2, 2, 1, 0, 0], // E/G#
+    "4|maj|11": [-1, 2, 2, 1, 0, 0], // E/B
+    "7|maj|11": [-1, 2, 0, 0, 0, 3], // G/B
+    "7|maj|2": [-1, -1, 0, 4, 3, 3], // G/D
+    "7|maj|6": [2, 2, 0, 0, 0, 3], // G/F#
+    "9|maj|1": [-1, 4, 2, 2, 2, 0], // A/C#
+    "9|maj|4": [0, 0, 2, 2, 2, 0], // A/E
+    "5|maj|9": [-1, 0, 3, 2, 1, 1], // F/A
+    "5|maj|0": [-1, 3, 3, 2, 1, 1], // F/C
+    "10|maj|2": [-1, 5, 3, 3, 3, -1], // Bb/D
+    "8|maj|0": [-1, 3, 1, 1, 1, -1], // Ab/C
+    "3|maj|7": [-1, -1, 5, 3, 4, 3], // Eb/G
+    "9|min|7": [3, 0, 2, 2, 1, 0], // Am/G
+    "9|min|4": [0, 0, 2, 2, 1, 0], // Am/E
+    "4|min|11": [-1, 2, 2, 0, 0, 0], // Em/B
+    "2|min|9": [-1, 0, 0, 2, 3, 1], // Dm/A
+    "2|min|5": [1, -1, 0, 2, 3, 1], // Dm/F
   };
 
   function parse(name) {
@@ -107,7 +143,8 @@
     if (!m) return null;
     const semi = SEMI[m[1]];
     if (semi == null) return null;
-    return { semi, qual: normQual(m[2]) };
+    const bass = m[3] != null ? SEMI[m[3]] : null;
+    return { semi, qual: normQual(m[2]), bass: bass != null ? bass : null };
   }
 
   // pick a shape and return {frets(abs), base, barre:{fret,from}|null}
@@ -143,10 +180,23 @@
     for (const k in attrs) s += " " + k + '="' + attrs[k] + '"';
     return s + (inner != null ? ">" + inner + "</" + tag + ">" : "/>");
   }
+  // slash chords: named voicing first, then a generic first-inversion shape
+  // (major 3rd in the bass on the A string), else the plain base chord
+  function slashShape(p) {
+    const s = SLASH[p.semi + "|" + p.qual + "|" + p.bass];
+    if (s) return { frets: s, base: 1, barre: null };
+    if (p.qual === "maj" && (p.bass - p.semi + 12) % 12 === 4) {
+      let b = (p.bass - 9 + 12) % 12;
+      if (b === 0) b = 12;
+      if (b >= 3 && b <= 11)
+        return { frets: [-1, b, b - 2, b - 2, b - 2, -1], base: b - 2, barre: null };
+    }
+    return shape(p.semi, p.qual);
+  }
   function svg(name) {
     const p = parse(name);
     if (!p || !p.qual) return null;
-    const sh = shape(p.semi, p.qual);
+    const sh = p.bass != null ? slashShape(p) : shape(p.semi, p.qual);
     if (!sh) return null;
     const W = L + SW * (NSTR - 1) + 14;
     const H = T + FH * NFRET + 10;
