@@ -1529,6 +1529,9 @@ const APP_NAME = "New Hope Band";
       : "<p>Could not render this song.</p>";
     // tidy chords: transpose parenthesised chords (ChordSheetJS leaves "(Fm)"
     // literal) and fix impossible enharmonics (Cb->B, Fb->E, B#->C, E#->F)
+    closeChordPop(); // a re-render invalidates the tapped chord's index
+    let ci = 0; // running index of non-empty chords; must match the order of
+    // ChordLyricsPair items in v.parsed (see saveChordEdit)
     sheetEl.querySelectorAll(".chord").forEach((c) => {
       let t = c.textContent;
       const m = t.match(/^\((.+)\)$/);
@@ -1538,6 +1541,7 @@ const APP_NAME = "New Hope Band";
         } catch {}
       }
       c.textContent = fixEnharmonic(t);
+      if (t.trim()) c.dataset.ci = ci++;
     });
 
     let now = keyName(v.key, delta);
@@ -1779,6 +1783,167 @@ const APP_NAME = "New Hope Band";
     rerenderOpen(uid);
   }
 
+  // ---- chord popover: tap a chord for its diagram; admins can edit it ----
+  let cpCi = -1; // index of the tapped chord among the sheet's non-empty chords
+  function canEditChord() {
+    if (current === null) return false;
+    const uid = songs[current].uid || "";
+    if (!uid) return false; // seed songs can't be persisted
+    return uid.startsWith("g:") ? loggedIn() : true; // local songs: no login
+  }
+  function openChordPop(chordEl) {
+    const name = chordEl.textContent.trim();
+    if (!name) return;
+    cpCi = parseInt(chordEl.dataset.ci, 10);
+    $("cp-name").textContent = name;
+    const dia = window.ChordDiagram ? ChordDiagram.svg(name) : null;
+    $("cp-body").innerHTML = dia || '<div class="cp-nodia">No diagram</div>';
+    $("cp-edit").classList.toggle("hidden", !canEditChord());
+    $("cp-editrow").classList.add("hidden");
+    $("cp-err").classList.add("hidden");
+    $("chordpop").classList.remove("hidden");
+    // anchor near the chord, clamped inside the viewport
+    const card = $("cp-card");
+    const r = chordEl.getBoundingClientRect();
+    card.style.visibility = "hidden";
+    requestAnimationFrame(() => {
+      const cw = card.offsetWidth,
+        ch = card.offsetHeight;
+      const x = Math.min(
+        Math.max(8, r.left + r.width / 2 - cw / 2),
+        window.innerWidth - cw - 8,
+      );
+      let y = r.bottom + 10;
+      if (y + ch > window.innerHeight - 12) y = r.top - ch - 10;
+      if (y < 8) y = Math.max(8, (window.innerHeight - ch) / 2);
+      card.style.left = x + "px";
+      card.style.top = y + "px";
+      card.style.visibility = "";
+    });
+  }
+  function closeChordPop() {
+    const p = $("chordpop");
+    if (p) p.classList.add("hidden");
+    cpCi = -1;
+  }
+  function startChordEdit() {
+    $("cp-editrow").classList.remove("hidden");
+    const inp = $("cp-input");
+    inp.value = $("cp-name").textContent;
+    inp.focus();
+    inp.select();
+  }
+  function cpError(msg) {
+    const e = $("cp-err");
+    e.textContent = msg;
+    e.classList.remove("hidden");
+  }
+  async function saveChordEdit() {
+    if (current === null || cpCi < 0) return closeChordPop();
+    const song = songs[current];
+    const v = song.versions[vi];
+    if (!v || !v.parsed) return closeChordPop();
+    const val = $("cp-input").value.trim();
+    if (!val) return; // empty would silently drop the chord; require a value
+    if (val === $("cp-name").textContent) return closeChordPop();
+    const parens = /^\(.*\)$/.test(val);
+    let core = parens ? val.slice(1, -1) : val;
+    // the sheet may be shown transposed: store the chord untransposed so it
+    // renders back to what was typed at the current offset
+    if (delta !== 0) {
+      let ch = null;
+      try {
+        ch = CS.Chord.parse(core);
+      } catch {}
+      if (!ch) {
+        cpError("Chord not recognised — reset transpose to edit it as-is.");
+        return;
+      }
+      core = fixEnharmonic(ch.transpose(-delta).toString());
+    }
+    const stored = parens ? "(" + core + ")" : core;
+    // find the cpCi-th non-empty chord pair (same order as the rendered sheet)
+    let n = 0,
+      pair = null;
+    v.parsed.lines.forEach((l) =>
+      l.items.forEach((it) => {
+        if (pair || !(it instanceof CS.ChordLyricsPair)) return;
+        if (!(it.chords && it.chords.trim())) return;
+        if (n === cpCi) pair = it;
+        n++;
+      }),
+    );
+    if (!pair) return closeChordPop();
+    const oldChord = pair.chords;
+    pair.chords = stored;
+    let cp;
+    try {
+      cp = new CS.ChordProFormatter().format(v.parsed);
+    } catch {
+      pair.chords = oldChord;
+      cpError("Couldn't rewrite the song.");
+      return;
+    }
+    const uid = song.uid;
+    if (uid && uid.startsWith("g:") && sbOn()) {
+      const row = getGlobalCache().find(
+        (x) => "g:" + (x.num != null ? x.num : x.id) === uid,
+      );
+      if (!row) {
+        pair.chords = oldChord;
+        return closeChordPop();
+      }
+      let data = row.data;
+      if (data && typeof data === "object" && data.versions) {
+        data = JSON.parse(JSON.stringify(data));
+        // versions are shown sorted (English first): match by text, then lang
+        const dv =
+          data.versions.find((x) => (x.text || x.chordpro || "") === v.raw) ||
+          data.versions.find((x) => (x.lang || "") === (v.lang || "")) ||
+          data.versions[vi];
+        if (!dv) {
+          pair.chords = oldChord;
+          return closeChordPop();
+        }
+        dv.text = cp;
+      } else {
+        data = cp;
+      }
+      const upd = { data, src: null };
+      if (hasPrevCol) upd.prev = row.data; // keep "restore previous" working
+      let res = await sbWrite(upd, uid.slice(2));
+      if (res.needLogin) {
+        if (!(await promptLogin())) {
+          pair.chords = oldChord;
+          return;
+        }
+        res = await sbWrite(upd, uid.slice(2));
+      }
+      if (!res.ok) {
+        pair.chords = oldChord;
+        cpError("Couldn't save. Check your connection / admin login.");
+        return;
+      }
+      closeChordPop();
+      await refreshGlobal();
+      rerenderOpen(uid);
+    } else if (uid && !uid.startsWith("g:")) {
+      const list = getUserSongs();
+      const s = list.find((x) => x.id === uid);
+      if (s) {
+        s.chordpro = cp;
+        saveUserSongs(list);
+      }
+      closeChordPop();
+      build();
+      renderList();
+      rerenderOpen(uid);
+    } else {
+      pair.chords = oldChord;
+      closeChordPop();
+    }
+  }
+
   // ---- lyrics-only (hide chords) ----
   function applyChords() {
     const on = store.get("chords", "1") !== "0";
@@ -2004,6 +2169,20 @@ const APP_NAME = "New Hope Band";
     $("key-down").addEventListener("click", () => transpose(-1));
     $("key-reset").addEventListener("click", resetTranspose);
     $("key-save").addEventListener("click", bakeTranspose);
+    // chord popover (diagram + admin edit)
+    sheetEl.addEventListener("click", (e) => {
+      const c = e.target.closest(".chord");
+      if (c && c.dataset.ci != null) openChordPop(c);
+    });
+    $("chordpop").addEventListener("click", (e) => {
+      if (e.target === $("chordpop")) closeChordPop();
+    });
+    $("cp-edit").addEventListener("click", startChordEdit);
+    $("cp-save").addEventListener("click", saveChordEdit);
+    $("cp-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") saveChordEdit();
+      if (e.key === "Escape") closeChordPop();
+    });
     $("size-reset").addEventListener("click", resetSize);
     $("add-btn").addEventListener("click", () => openEditor());
     $("ed-close").addEventListener("click", closeEditor);

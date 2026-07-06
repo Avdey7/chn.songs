@@ -1443,6 +1443,113 @@
           bottom: calc(78px + env(safe-area-inset-bottom, 0));
         }
       }
+
+      /* chord tap popover: diagram for everyone, pencil-edit for admins */
+      .sheet .chord:not(:empty) {
+        cursor: pointer;
+      }
+      @media (hover: hover) {
+        .sheet .chord:not(:empty):hover {
+          text-decoration: underline dotted;
+          text-underline-offset: 3px;
+        }
+      }
+      #chordpop {
+        position: fixed;
+        inset: 0;
+        z-index: 66;
+      }
+      .cp-card {
+        position: fixed;
+        min-width: 176px;
+        max-width: min(280px, calc(100vw - 16px));
+        padding: 12px 14px 14px;
+        border-radius: var(--radius);
+        background: var(--glass-bg);
+        -webkit-backdrop-filter: var(--glass-blur);
+        backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+      }
+      .cp-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      #cp-name {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--accent);
+      }
+      #cp-edit {
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--muted);
+        display: grid;
+        place-items: center;
+        line-height: 0;
+        cursor: pointer;
+      }
+      #cp-edit svg {
+        width: 15px;
+        height: 15px;
+      }
+      #cp-edit:active {
+        color: var(--accent);
+      }
+      #cp-body {
+        display: grid;
+        place-items: center;
+        color: var(--text);
+        margin-top: 2px;
+      }
+      .cp-nodia {
+        color: var(--muted);
+        font-size: 0.85rem;
+        padding: 18px 4px;
+      }
+      #cp-editrow {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      #cp-input {
+        width: 100px;
+        flex: 1;
+        min-width: 0;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 600;
+        font-size: 0.95rem;
+        outline: none;
+      }
+      #cp-input:focus {
+        border-color: var(--accent-dim);
+      }
+      #cp-save {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: none;
+        background: var(--accent-grad);
+        color: var(--on-accent);
+        font-weight: 700;
+        cursor: pointer;
+      }
+      #cp-err {
+        color: #e5484d;
+        font-size: 0.8rem;
+        margin-top: 8px;
+        max-width: 240px;
+      }
     </style>
   </head>
   <body>
@@ -1549,7 +1656,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 34</span>
+          &middot; <span id="ver">build 35</span>
         </footer>
       </div>
 
@@ -1721,6 +1828,24 @@
     </div>
 
     <!-- ADD / EDIT SONG OVERLAY -->
+    <!-- chord popover: tap a chord in the song view -->
+    <div id="chordpop" class="hidden">
+      <div class="cp-card" id="cp-card">
+        <div class="cp-head">
+          <span id="cp-name"></span>
+          <button id="cp-edit" class="hidden" title="Edit chord" aria-label="Edit chord">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </button>
+        </div>
+        <div id="cp-body"></div>
+        <div id="cp-editrow" class="hidden">
+          <input id="cp-input" autocapitalize="off" autocomplete="off" spellcheck="false" />
+          <button id="cp-save">Save</button>
+        </div>
+        <div id="cp-err" class="hidden"></div>
+      </div>
+    </div>
+
     <div id="editor" class="editor hidden">
       <div class="editor-card">
         <div class="editor-head editor-head-sticky">
@@ -1800,6 +1925,7 @@
     </div>
 
     <script src="vendor/chordsheetjs.min.js"></script>
+    <script src="chord-diagrams.js"></script>
     <script src="convert-core.js"></script>
     <script src="songs.js"></script>
     <script src="app.js"></script>

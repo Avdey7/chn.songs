@@ -19,6 +19,7 @@ A worship songbook PWA for a church team. Static site, no build step. Author: Av
   `alter table public.songs add column if not exists num serial;`
   `alter table public.songs add column if not exists tags text;`
   `alter table public.songs add column if not exists prev jsonb;`
+- `chord-diagrams.js` — offline guitar chord diagrams: `window.ChordDiagram.svg("Am7")` → SVG string or null (open shapes preferred, movable barre fallback from the root; unknown qualities → null and the popover shows just the name).
 - `icons/`, `manifest.json`, `vendor/chordsheetjs.min.js`.
 
 ## Supabase (global catalog)
@@ -58,7 +59,12 @@ A worship songbook PWA for a church team. Static site, no build step. Author: Av
 - **Set reorder:** drag the grip handle (mouse), OR **press-and-hold anywhere on a row** (touch). Hold-drag floats a *clone* while the real row stays in the DOM as a hidden traveling gap (avoids iOS `touchcancel`); rows are `user-select:none`.
 
 ## Features
-search; tag chips + filter; favorites (local, row star + ★ filter); named sets (per service) with share link+QR + import; swipe between songs; swipe between All/Set tabs (menu); transpose + admin "save key"; size +/−/reset + pinch; autoscroll; chords on/off; stage mode (OLED); PDF print (2-col, no headers); in-app add/edit/delete (global, bilingual); restore previous version; always-visible add-to-set + favorite in the song header; back-to-top; remembers open song + tab on refresh; editor closes on back gesture.
+search; tag chips + filter; favorites (local, row star + ★ filter); named sets (per service) with share link+QR + import; swipe between songs; swipe between All/Set tabs (menu); transpose + admin "save key"; size +/−/reset + pinch; autoscroll; chords on/off; stage mode (OLED); PDF print (2-col, no headers); in-app add/edit/delete (global, bilingual); restore previous version; always-visible add-to-set + favorite in the song header; back-to-top; remembers open song + tab on refresh; editor closes on back gesture; **chord popover**: tap any chord → guitar diagram (follows transpose); pencil edit for admins (global songs; local songs need no login) — the edit is untransposed before saving so the stored ChordPro stays in the original key, `prev` is kept for restore.
+
+### Chord popover internals (app.js)
+- `renderSheet()` stamps `data-ci` (running index) on non-empty `.chord` spans; the same enumeration order over `v.parsed`'s non-empty `ChordLyricsPair`s locates the tapped chord (verified 1:1 incl. paren chords; empty pairs are skipped on both sides).
+- `saveChordEdit()` mutates `pair.chords`, reformats with `ChordProFormatter` (standardized output, same precedent as bakeTranspose), matches the bilingual `data.versions` entry by text→lang→index (display order is English-first-sorted), writes `{data, src:null, prev}` via `sbWrite`, reverts the in-memory chord on failure.
+- ChordSheetJS normalizes some names on render (`Gsus4` shows as `Gsus`); the stored text keeps what the user typed.
 
 ## localStorage keys
 sets, activeSet, globalsongs, usersongs, favs, opensong, listmode, size, scrollspeed, theme, chords, sb_token/sb_exp/sb_email/sb_refresh.
@@ -69,5 +75,6 @@ sets, activeSet, globalsongs, usersongs, favs, opensong, listmode, size, scrolls
 - Update the Changelog below (and any stale docs above) with every change.
 
 ## Changelog
+- **build 35** (2026-07-06) — Chord popover: tap a chord in the song view → glass card with the chord name + guitar diagram (new `chord-diagrams.js`, offline, theme-aware via currentColor); admins (or local songs) get a pencil to edit the chord in place — saved to Supabase with `prev` backup, correctly untransposed when the view is transposed. Popover anchors near the tapped chord, clamped to the viewport; backdrop tap / Escape closes. Verified with Playwright: diagram render, edit persistence, transposed-edit math (D→stored C at +2).
 - **build 34** (2026-07-06) — Perf + deploy visibility: `songs.js` served cache-first by the SW (saves ~135 KB per online load; it's only the offline seed, a `CACHE_VERSION` bump re-precaches it); `preconnect` to Supabase in `<head>` (faster first catalog fetch); "App updated — tap to reload" glass toast shown on SW `controllerchange` (skipped on first visit, auto-hides in 15 s, sits above the phone bottom-nav, z-index 70). Toast CSS lives at the end of the `<style>` block; logic in the inline SW-registration script at the end of `<body>`.
 - **builds ≤33** — see git history (`git log --oneline`): flat/borderless list, glassmorphism chrome, bottom-nav All/Set tabs with swipe, press-and-hold set reorder, stage mode, bilingual editor, sets + share QR, favorites, tags, transpose/save-key, autoscroll, PDF print, Supabase catalog with auth + restore-previous.
