@@ -1497,6 +1497,13 @@ const APP_NAME = "New Hope Band";
   function fixEnharmonic(text) {
     return text.replace(/([A-G])(#|b)?/g, (m, L, acc) => ENH[L + (acc || "")] || m);
   }
+  // ChordSheetJS's HtmlDivFormatter abbreviates a major-7 quality on render
+  // ("Amaj7" -> "Ama7"); restore the conventional "maj" for display only (the
+  // stored ChordPro keeps "maj7"). The "ma" it emits is always followed by a
+  // digit, so this can't touch minor ("m7") or other qualities.
+  function fixMaj(text) {
+    return text.replace(/([A-G][#b]?)ma(?=\d)/g, "$1maj");
+  }
   function keyName(baseKey, d) {
     if (!baseKey) return null;
     try {
@@ -1554,7 +1561,7 @@ const APP_NAME = "New Hope Band";
           t = "(" + CS.Chord.parse(m[1]).transpose(delta).toString() + ")";
         } catch {}
       }
-      c.textContent = fixEnharmonic(t);
+      c.textContent = fixMaj(fixEnharmonic(t));
       if (t.trim()) c.dataset.ci = ci++;
     });
     // Preserve inter-word spaces that sit at a chord boundary. ChordSheetJS
