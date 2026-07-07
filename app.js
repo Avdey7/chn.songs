@@ -349,8 +349,12 @@ const APP_NAME = "New Hope Band";
   function transformLine(line) {
     if (isChordLine(line)) return cleanChordLine(line);
     // a space right after a chord, before a word, shifts the chord off the
-    // word; collapse it (but keep "[G] [C]" gaps on chord-only lines)
-    return line.replace(/\]\s+(?=[^\s[{])/g, "]");
+    // word; collapse it (but keep "[G] [C]" gaps on chord-only lines).
+    // Only when the chord stands on its own (preceded by start/space), e.g.
+    // "me [G] close" -> "me [G]close". When the chord is glued to the previous
+    // word ("me[G] close"), the following space is a real word gap — keep it,
+    // otherwise the words merge ("meclose").
+    return line.replace(/(^|\s)(\[[^\]]*\])\s+(?=[^\s[{])/g, "$1$2");
   }
   // If a line is made up only of bracketed tokens (e.g. "[CHORUS] [x2]" or
   // "[x2]"), return the inner texts; else null. Used to turn bracketed section
@@ -685,9 +689,19 @@ const APP_NAME = "New Hope Band";
     $("editor").classList.add("hidden");
     document.documentElement.classList.remove("noscroll");
   }
+  // On desktop (mouse/trackpad), an accidental horizontal gesture — e.g. an
+  // overscroll while drag-selecting text right-to-left — fires a history back
+  // that would close the editor and discard unsaved edits. There we keep the
+  // editor open on stray back events and close only via the Close button.
+  const editKeepOpen =
+    window.matchMedia &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  let editorClosing = false;
   function closeEditor() {
-    if (!$("editor").classList.contains("hidden")) history.back();
-    else closeEditorUI();
+    if (!$("editor").classList.contains("hidden")) {
+      editorClosing = true; // an intentional close: let popstate hide the editor
+      history.back();
+    } else closeEditorUI();
   }
   async function saveEditor() {
     const name = $("ed-name").value.trim();
@@ -1542,6 +1556,17 @@ const APP_NAME = "New Hope Band";
       }
       c.textContent = fixEnharmonic(t);
       if (t.trim()) c.dataset.ci = ci++;
+    });
+    // Preserve inter-word spaces that sit at a chord boundary. ChordSheetJS
+    // splits "Hold me[G] close" into columns "Hold me" + " close"; the browser
+    // trims the leading/trailing space of each flex column, gluing the words
+    // ("Hold meclose"). Convert those edge spaces to non-breaking spaces so the
+    // gap survives (interior spaces stay breakable, so long lines still wrap).
+    const NBSP = " ";
+    sheetEl.querySelectorAll(".lyrics").forEach((l) => {
+      const t = l.textContent;
+      if (!t || !/^ | $/.test(t)) return;
+      l.textContent = t.replace(/^ +| +$/g, (m) => NBSP.repeat(m.length));
     });
 
     let now = keyName(v.key, delta);
@@ -2400,7 +2425,17 @@ const APP_NAME = "New Hope Band";
     });
     window.addEventListener("popstate", () => {
       if (!$("editor").classList.contains("hidden")) {
-        closeEditorUI();
+        if (editorClosing) {
+          editorClosing = false;
+          closeEditorUI();
+          return;
+        }
+        // desktop: ignore a stray back gesture, keep the editor (and edits) up
+        if (editKeepOpen) {
+          history.pushState({ ed: 1 }, "");
+          return;
+        }
+        closeEditorUI(); // phones: the back gesture closes the editor
         return;
       }
       if (current !== null) closeSong();

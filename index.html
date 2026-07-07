@@ -176,6 +176,9 @@
         /* clip any horizontal overflow at the root too, so a transition can
            never spawn a horizontal scrollbar that shifts the fixed bottom-nav */
         overflow-x: clip;
+        /* block the horizontal swipe-to-go-back gesture (desktop trackpads):
+           it would fire popstate and close an open editor mid-edit */
+        overscroll-behavior-x: none;
       }
       body {
         background: var(--bg);
@@ -1231,6 +1234,10 @@
         padding: 12px;
         outline: none;
         white-space: pre;
+        /* the textarea scrolls sideways on long chord lines; contain the
+           overscroll so a right-to-left select-drag can't trigger the
+           browser's back-swipe (which would close the editor + lose edits) */
+        overscroll-behavior: contain;
       }
       .ed-actions {
         display: flex;
@@ -1656,7 +1663,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 36</span>
+          &middot; <span id="ver">build 37</span>
         </footer>
       </div>
 

@@ -4,7 +4,7 @@
    songs show up on reload without any cache-clearing. When OFFLINE it serves
    the last cached copy. You no longer need to bump the version every time you
    add a song; only bump it if you change the icons or the chordsheetjs file. */
-const CACHE_VERSION = "songbook-v36";
+const CACHE_VERSION = "songbook-v37";
 
 const PRECACHE = [
   ".", "index.html", "app.js", "songs.js", "convert-core.js", "chord-diagrams.js", "manifest.json",
