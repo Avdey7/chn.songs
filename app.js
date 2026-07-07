@@ -2223,9 +2223,9 @@ const APP_NAME = "New Hope Band";
       }
     });
     $("ed-logout").addEventListener("click", logoutAdmin);
-    $("editor").addEventListener("click", (e) => {
-      if (e.target.id === "editor") closeEditor();
-    });
+    // NB: no click-outside-to-close on the editor backdrop — a text selection
+    // that ends on the dimmed backdrop would fire a click there and discard
+    // unsaved edits. The editor closes only via the Close button (or Save).
     $("pdf-btn").addEventListener("click", () => {
       closeControls();
       setTimeout(() => window.print(), 80);
