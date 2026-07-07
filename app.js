@@ -1031,13 +1031,27 @@ const APP_NAME = "New Hope Band";
       } else {
         return null;
       }
+      const name = obj.n || "Imported set";
       const sets = getSets() || [];
-      const s = { id: uid(), name: obj.n || "Imported set", songs: titles };
+      // don't duplicate: if a set with the same name AND the same song list
+      // (order included) already exists, just switch to it instead of adding
+      // another copy (re-scanning a QR / reopening a link used to pile up dupes)
+      const sameSongs = (a, b) =>
+        a.length === b.length && a.every((t, i) => t === b[i]);
+      const existing = sets.find(
+        (x) => x.name === name && sameSongs(x.songs || [], titles),
+      );
+      if (existing) {
+        activeSetId = existing.id;
+        store.set("activeSet", activeSetId);
+        return { set: existing, dup: true };
+      }
+      const s = { id: uid(), name, songs: titles };
       sets.push(s);
       saveSets(sets);
       activeSetId = s.id;
       store.set("activeSet", activeSetId);
-      return s;
+      return { set: s, dup: false };
     } catch {
       return null;
     }
@@ -1045,20 +1059,25 @@ const APP_NAME = "New Hope Band";
   function importSetPrompt() {
     const text = prompt("Paste a shared set link:");
     if (!text) return;
-    const s = importFromText(text);
-    if (s) {
-      const have = s.songs.filter((t) => songs.some((x) => x.title === t)).length;
+    const r = importFromText(text);
+    if (r) {
+      const s = r.set;
       setListMode("set");
       renderSetBar();
-      alert(
-        'Imported "' +
-          s.name +
-          '" — ' +
-          have +
-          " of " +
-          s.songs.length +
-          " songs found in this app.",
-      );
+      if (r.dup) {
+        alert('You already have "' + s.name + '" — switched to it.');
+      } else {
+        const have = s.songs.filter((t) => songs.some((x) => x.title === t)).length;
+        alert(
+          'Imported "' +
+            s.name +
+            '" — ' +
+            have +
+            " of " +
+            s.songs.length +
+            " songs found in this app.",
+        );
+      }
     } else {
       alert("Sorry, that link could not be read.");
     }
@@ -1066,9 +1085,9 @@ const APP_NAME = "New Hope Band";
   // auto-import when the app is opened from a share link
   function checkHashImport() {
     if (!location.hash.startsWith("#set=")) return false;
-    const s = importFromText(location.hash);
+    const r = importFromText(location.hash); // dedupes; switches to it if a dup
     history.replaceState(null, "", location.pathname + location.search);
-    return !!s;
+    return !!r;
   }
 
   function renderSetBar() {
