@@ -110,7 +110,13 @@ const APP_NAME = "New Hope Band";
       if (!r.ok) r = await fetch(base + "id,num,title,data,src,tags", hdr);
       if (!r.ok) r = await fetch(base + "id,num,title,data,src", hdr);
       if (!r.ok) return;
-      store.set("globalsongs", JSON.stringify(await r.json()));
+      const newStr = JSON.stringify(await r.json());
+      const oldStr = store.get("globalsongs", "");
+      store.set("globalsongs", newStr);
+      // catalog unchanged since the cache the list was built from -> nothing to
+      // rebuild; skip the re-normalize + full list re-render (avoids a flash on
+      // every launch). songs.length guard: only skip once the list is built.
+      if (newStr === oldStr && songs && songs.length) return;
       const openId =
         current !== null ? songs[current].uid || songs[current].title : null;
       build();
@@ -250,6 +256,13 @@ const APP_NAME = "New Hope Band";
   }
 
   // ---- helpers ----
+  // strip diacritics so search is accent-insensitive: "gloria" finds "Glória",
+  // "cafe" finds "Café" (and Cyrillic combining marks like й→и, ї→і normalize).
+  // Distinct Cyrillic letters (и vs і) are left alone. Applied to both the
+  // stored search text and the query.
+  function deaccent(s) {
+    return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
   function plainText(raw) {
     return raw
       .replace(/\{[^}]*\}/g, " ")
@@ -485,7 +498,7 @@ const APP_NAME = "New Hope Band";
       versions,
       langs,
       langAbbrs,
-      searchText: searchText + " " + tags.join(" ").toLowerCase(),
+      searchText: deaccent(searchText + " " + tags.join(" ").toLowerCase()),
       uid: (typeof entry === "object" && entry._uid) || null,
       tags,
     };
@@ -1306,7 +1319,7 @@ const APP_NAME = "New Hope Band";
   }
   function renderList(filter = lastFilter) {
     lastFilter = filter;
-    const q = filter.trim().toLowerCase();
+    const q = deaccent(filter.trim().toLowerCase());
 
     // base list depends on the active tab
     let base;
