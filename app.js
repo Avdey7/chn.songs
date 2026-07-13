@@ -1648,7 +1648,43 @@ const APP_NAME = "New Hope Band";
     const t = store.get("opensong", "");
     if (!t) return;
     const s = songs.find((x) => x.title === t);
-    if (s) openSong(s);
+    if (!s) return;
+    // Resume the song WITHOUT an immediate history.pushState. A push made
+    // during load — before any user gesture — is flagged "skippable" by
+    // Android Chrome's back/forward intervention, so the very first Back
+    // gesture skips it and exits the app instead of returning to the list.
+    // Show the song now and add the back-buffer entry on the first user
+    // interaction (which carries the activation that makes the entry stick).
+    navList = currentMatches.slice();
+    navPos = navList.indexOf(s);
+    showSong(songs.indexOf(s));
+    armSongEntry();
+  }
+  // deferred history entry for a restored song (see restoreOpen)
+  let pendingSongEntry = false;
+  let songEntryHandler = null;
+  const SONG_ENTRY_EVENTS = ["pointerdown", "touchstart", "keydown", "wheel"];
+  function armSongEntry() {
+    disarmSongEntry();
+    pendingSongEntry = true;
+    songEntryHandler = () => {
+      if (!pendingSongEntry) return;
+      pendingSongEntry = false;
+      if (current !== null) history.pushState({ view: "song" }, "");
+      disarmSongEntry();
+    };
+    SONG_ENTRY_EVENTS.forEach((ev) =>
+      window.addEventListener(ev, songEntryHandler, { passive: true }),
+    );
+  }
+  function disarmSongEntry() {
+    if (songEntryHandler) {
+      SONG_ENTRY_EVENTS.forEach((ev) =>
+        window.removeEventListener(ev, songEntryHandler),
+      );
+      songEntryHandler = null;
+    }
+    pendingSongEntry = false;
   }
   // open from the list: set up the swipe sequence from the current view
   function openSong(song) {
@@ -1711,6 +1747,7 @@ const APP_NAME = "New Hope Band";
   }
 
   function closeSong() {
+    disarmSongEntry(); // drop any un-pushed restore buffer
     store.set("opensong", "");
     document.documentElement.classList.remove("stage");
     stopScroll();
@@ -2209,11 +2246,16 @@ const APP_NAME = "New Hope Band";
     );
     // the in-app Back button uses history so it stays in sync with the
     // phone's Back gesture (both pop the entry pushed in openSong)
-    $("back").addEventListener("click", () => {
-      if (current !== null) history.back();
-    });
+    // if the restore buffer entry was never pushed (no interaction yet), close
+    // directly — there's no history entry to pop
+    const backFromSong = () => {
+      if (current === null) return;
+      if (pendingSongEntry) closeSong();
+      else history.back();
+    };
+    $("back").addEventListener("click", backFromSong);
     $("brand").addEventListener("click", () => {
-      if (current !== null) history.back();
+      if (current !== null) backFromSong();
       else window.scrollTo(0, 0);
     });
     $("key-up").addEventListener("click", () => transpose(1));
