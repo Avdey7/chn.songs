@@ -438,17 +438,21 @@ const APP_NAME = "New Hope Band";
       if (!rawVersions.length) rawVersions = [{ lang: "", text: "" }];
     }
     const versions = rawVersions.map((v) => {
-      let parsed = null,
-        title = "",
-        key = "";
-      try {
-        parsed = parser.parse(standardize(v.text));
-        title = parsed.title || "";
-        key = parsed.key || "";
-      } catch (e) {
-        console.error("Parse error:", e);
-      }
-      return { lang: v.lang, raw: v.text, parsed, title, key };
+      // Lazy parse: the list only needs the title/key, which we read cheaply by
+      // regex (verified identical to ChordSheetJS across the whole catalog).
+      // The expensive ChordSheetJS parse is deferred to ensureParsed(), run
+      // when a song is actually opened — saves parsing every song on load and
+      // on every refreshGlobal.
+      const mt = v.text.match(/\{(?:title|t)\s*:\s*([^}]*)\}/i);
+      const mk = v.text.match(/\{(?:key|k)\s*:\s*([^}]*)\}/i);
+      return {
+        lang: v.lang,
+        raw: v.text,
+        parsed: null,
+        parsedDone: false,
+        title: mt ? mt[1].trim() : "",
+        key: mk ? mk[1].trim() : "",
+      };
     });
     // bilingual songs: show the English version first
     versions.sort(
@@ -485,6 +489,19 @@ const APP_NAME = "New Hope Band";
       uid: (typeof entry === "object" && entry._uid) || null,
       tags,
     };
+  }
+  // Parse a version's ChordPro on demand (see normalize's lazy parse). Returns
+  // the ChordSheetJS Song or null; caches the result on the version object.
+  function ensureParsed(v) {
+    if (!v || v.parsedDone) return v ? v.parsed : null;
+    v.parsedDone = true;
+    try {
+      v.parsed = parser.parse(standardize(v.raw));
+    } catch (e) {
+      console.error("Parse error:", e);
+      v.parsed = null;
+    }
+    return v.parsed;
   }
   // best-guess language abbreviation from lyrics, for songs with no declared lang
   function detectAbbr(raw) {
@@ -1556,7 +1573,7 @@ const APP_NAME = "New Hope Band";
 
   function renderSheet() {
     const v = songs[current].versions[vi];
-    let song = v.parsed;
+    let song = ensureParsed(v);
     if (delta !== 0 && song) {
       try {
         song = song.transpose(delta);
@@ -1802,7 +1819,7 @@ const APP_NAME = "New Hope Band";
     const song = songs[current];
     if (!song.uid || !song.uid.startsWith("g:") || !sbOn()) return;
     const v = song.versions[vi];
-    if (!v.parsed) return;
+    if (!ensureParsed(v)) return;
     if (!confirm("Save the current key for everyone? This rewrites the song's chords."))
       return;
     let cp;
@@ -1903,7 +1920,7 @@ const APP_NAME = "New Hope Band";
     if (current === null || cpCi < 0) return closeChordPop();
     const song = songs[current];
     const v = song.versions[vi];
-    if (!v || !v.parsed) return closeChordPop();
+    if (!v || !ensureParsed(v)) return closeChordPop();
     const val = $("cp-input").value.trim();
     if (!val) return; // empty would silently drop the chord; require a value
     if (val === $("cp-name").textContent) return closeChordPop();
