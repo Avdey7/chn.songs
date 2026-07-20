@@ -776,10 +776,13 @@ const APP_NAME = "New Hope Band";
     // is the song being edited the one currently open? (re-render it after save)
     const reopenUid =
       current !== null && songs[current].uid === editId ? editId : null;
-    // keep renamed songs in their sets
+    // keep renamed songs in their sets AND favorites
     const oldTitle = reopenUid ? songs[current].title : null;
     const renamed = () => {
-      if (oldTitle && name && name !== oldTitle) renameInSets(oldTitle, name);
+      if (oldTitle && name && name !== oldTitle) {
+        renameInSets(oldTitle, name);
+        renameInFavs(oldTitle, name);
+      }
     };
 
     if (sbOn()) {
@@ -1311,6 +1314,15 @@ const APP_NAME = "New Hope Band";
     const i = a.indexOf(t);
     if (i >= 0) a.splice(i, 1);
     else a.push(t);
+    store.set("favs", JSON.stringify(a));
+  }
+  // a renamed song keeps its favorite star (favorites are matched by title,
+  // same as sets — see renameInSets)
+  function renameInFavs(oldT, newT) {
+    const a = getFavs();
+    const i = a.indexOf(oldT);
+    if (i < 0) return;
+    a[i] = newT;
     store.set("favs", JSON.stringify(a));
   }
   function updateFavBtn() {
