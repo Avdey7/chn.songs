@@ -1673,22 +1673,25 @@ const APP_NAME = "New Hope Band";
     window.scrollTo(0, 0);
   }
 
+  let resumedOnce = false;
   function restoreOpen() {
-    if (current !== null) return;
+    // Resume to the LIST, not the song. Auto-opening the last song at launch
+    // put the app in the song view backed by a history entry created during
+    // page load — which Android Chrome voids, so the first Back gesture exited
+    // the app (worked only after a few seconds / an interaction). Landing on
+    // the list keeps Back predictable. To preserve the resume feel we scroll
+    // the remembered song into view and briefly highlight it (one-tap reopen).
+    if (resumedOnce || current !== null) return;
     const t = store.get("opensong", "");
     if (!t) return;
-    const s = songs.find((x) => x.title === t);
-    if (!s) return;
-    // Resume the song with a guaranteed back-target so the FIRST Back gesture
-    // returns to the list instead of exiting the app: label the current (page
-    // load) history entry as the list, then push the song entry on top. Even
-    // if Android Chrome's back/forward intervention treats the song push as
-    // "skippable", Back still lands on the non-skippable load entry (the list).
-    history.replaceState({ view: "list" }, "");
-    history.pushState({ view: "song" }, "");
-    navList = currentMatches.slice();
-    navPos = navList.indexOf(s);
-    showSong(songs.indexOf(s));
+    const idx = currentMatches.findIndex((s) => s.title === t);
+    if (idx < 0) return; // not in the current tab/list yet; a later refresh retries
+    const row = listEl.children[idx];
+    if (!row) return;
+    resumedOnce = true;
+    row.classList.add("just-open");
+    row.scrollIntoView({ block: "center" });
+    setTimeout(() => row.classList.remove("just-open"), 2400);
   }
   // open from the list: set up the swipe sequence from the current view
   function openSong(song) {

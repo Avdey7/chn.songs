@@ -336,6 +336,24 @@
         cursor: pointer;
         transition: background 0.12s ease;
       }
+      /* brief highlight on the last-opened song when resuming to the list */
+      ul.list li.just-open {
+        animation: rowResume 2.4s ease;
+      }
+      @keyframes rowResume {
+        0%,
+        55% {
+          background: var(--accent-soft);
+        }
+        100% {
+          background: transparent;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        ul.list li.just-open {
+          animation: none;
+        }
+      }
       /* press-and-hold reorders a row — never let the text get selected or the
          iOS callout/magnifier appear (applied to the row AND its children) */
       ul.list li,
@@ -1665,7 +1683,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 45</span>
+          &middot; <span id="ver">build 46</span>
         </footer>
       </div>
 
