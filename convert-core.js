@@ -9,7 +9,15 @@
   // decoration tokens on a chord line: bars, strum slashes, repeat marks, "x2", "(2x)"
   const DECO_RE = /^[|/().x\d\-–—:]+$/i;
 
+  // "no chord" marker, shown in the chord row like a chord (N.C. / NC / (N.C.))
+  const NC_RE = /^\(?\s*(?:n\.?\s*c\.?|no\s*chord)\s*\)?$/i;
+  // any repeat marker -> canonical "xN" (2x, х2, (2x) -> x2)
+  function normRepeat(s) {
+    const m = String(s).match(/(\d+)\s*[xх]|[xх]\s*(\d+)/i);
+    return m ? "x" + (m[1] || m[2]) : s;
+  }
   function isChord(tok) {
+    if (NC_RE.test(tok)) return true;
     const m = tok.match(/^\((.+)\)$/); // (Fm) optional/passing chord
     return CHORD_RE.test(m ? m[1] : tok);
   }
@@ -28,13 +36,25 @@
   }
 
   // ---- section headers ----
-  const HEADERS = new Set([
-    "intro", "verse", "prechorus", "prechorus", "chorus", "bridge", "tag", "instrumental",
-    "interlude", "refrain", "turn", "turnaround", "outro", "ending", "vamp", "hook", "coda",
-    // ukrainian / russian
-    "інтро", "вступ", "куплет", "приспів", "передприспів", "заспів", "програш",
-    "бридж", "брідж", "фінал", "кінцівка", "проигрыш", "припев", "куплет"
-  ]);
+  // section word (any language) -> universal English label (mirrors app.js)
+  const SECTION = {
+    intro: "Intro", вступ: "Intro", інтро: "Intro",
+    verse: "Verse", куплет: "Verse", заспів: "Verse",
+    prechorus: "Pre-Chorus", передприспів: "Pre-Chorus",
+    chorus: "Chorus", приспів: "Chorus", припев: "Chorus",
+    altchorus: "Alt Chorus", alternatechorus: "Alt Chorus", alternativechorus: "Alt Chorus",
+    refrain: "Refrain",
+    halfchorus: "Half-Chorus", halfverse: "Half-Verse",
+    bridge: "Bridge", бридж: "Bridge", брідж: "Bridge",
+    instrumental: "Instrumental", програш: "Instrumental", проигрыш: "Instrumental",
+    interlude: "Interlude",
+    turn: "Turnaround", turnaround: "Turnaround",
+    outro: "Outro", ending: "Outro", coda: "Outro",
+    фінал: "Outro", кінцівка: "Outro",
+    tag: "Tag", vamp: "Vamp", hook: "Hook", solo: "Solo", соло: "Solo",
+    breakdown: "Breakdown", channel: "Channel",
+  };
+  const HEADERS = new Set(Object.keys(SECTION));
   function headerKey(line) {
     return line.toLowerCase()
       .replace(/[0-9]/g, "")
@@ -47,9 +67,17 @@
     if (isChordLine(t)) return false;   // chord lines aren't headers
     return HEADERS.has(headerKey(t));
   }
-  // drop surrounding [ ] from a header label so "[VERSE]" -> "VERSE"
+  // "[VERSE]" / "Куплет 1" / "Приспів 2x" -> universal English label with a
+  // kept section number and normalised repeat marker ("Verse 1", "Chorus x2")
   function headerLabel(line) {
-    return line.trim().replace(/^\[\s*|\s*\]$/g, "").replace(/\s*:\s*$/, "").trim();
+    const raw = line.trim().replace(/^\[\s*|\s*\]$/g, "").replace(/\s*:\s*$/, "").trim();
+    const base = SECTION[headerKey(raw)];
+    if (!base) return raw;
+    let rest = raw, rep = "";
+    const repM = rest.match(/\(?\s*(?:\d+\s*[xх]|[xх]\s*\d+)\s*\)?/i);
+    if (repM) { rep = normRepeat(repM[0]); rest = rest.replace(repM[0], " "); }
+    const numM = rest.match(/\d+/);
+    return base + (numM ? " " + numM[0] : "") + (rep ? " " + rep : "");
   }
 
   // ---- German/Slavic note conversion (H->B natural, B->Bb) ----
@@ -64,6 +92,7 @@
   function deGerman(sym) { return sym.split("/").map(convNote).join("/"); }
 
   function mapChord(sym, german) {
+    if (NC_RE.test(sym)) return "N.C.";
     const m = sym.match(/^\((.+)\)$/);
     if (m) return "(" + (german ? deGerman(m[1]) : m[1]) + ")";
     return german ? deGerman(sym) : sym;
@@ -89,7 +118,8 @@
 
   // ---- chord-only line (intro, turnaround) -> bracket the chords, keep bars ----
   function bracketChordOnly(line, german) {
-    return line.replace(/\S+/g, (t) => (isChord(t) ? "[" + mapChord(t, german) + "]" : t));
+    return line.replace(/\S+/g, (t) =>
+      isChord(t) ? "[" + mapChord(t, german) + "]" : normRepeat(t));
   }
 
   // ---- main ----
@@ -138,6 +168,16 @@
       .replace(/\t/g, "    ")
       .replace(/[ \t]+$/gm, "")            // trailing spaces per line
       .replace(/\n{3,}/g, "\n\n");         // collapse big blank runs
+  }
+  // blank lines only BEFORE a section header, never within a section
+  function tidyBlanks(cp) {
+    const out = [];
+    for (const ln of cp.split("\n")) {
+      if (!ln.trim()) continue;
+      if (/^\{(?:comment|c|ci)\s*:/i.test(ln.trim()) && out.length) out.push("");
+      out.push(ln);
+    }
+    return out.join("\n");
   }
   const isChordProText = (t) =>
     /\[[A-H][^\]]{0,12}\]/.test(t) || /\{\s*(title|t|key|k|c|comment|start_of|end_of)\b/i.test(t);
@@ -251,7 +291,7 @@
     const bodyHasKey = /\{\s*(key|k)\s*:/i.test(body);
     const heads = head.filter((h) =>
       !(bodyHasTitle && /^\{title/i.test(h)) && !(bodyHasKey && /^\{key/i.test(h)));
-    return (heads.length ? heads.join("\n") + "\n\n" : "") + body;
+    return tidyBlanks((heads.length ? heads.join("\n") + "\n" : "") + body);
   }
 
   const api = { convert, smartImport, guessKey, isChord, isChordLine, isHeader, mergeLines, deGerman };

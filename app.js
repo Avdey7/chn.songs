@@ -280,6 +280,7 @@ const APP_NAME = "New Hope Band";
     verse: "Verse", куплет: "Verse", заспів: "Verse",
     prechorus: "Pre-Chorus", передприспів: "Pre-Chorus",
     chorus: "Chorus", приспів: "Chorus", припев: "Chorus",
+    altchorus: "Alt Chorus", alternatechorus: "Alt Chorus", alternativechorus: "Alt Chorus",
     refrain: "Refrain",
     halfchorus: "Half-Chorus", halfverse: "Half-Verse",
     bridge: "Bridge", бридж: "Bridge", брідж: "Bridge",
@@ -295,7 +296,15 @@ const APP_NAME = "New Hope Band";
   const SECTION_KEYS = new Set(Object.keys(SECTION_EN));
   const CHORUS_KEYS = new Set([
     "chorus", "halfchorus", "refrain", "приспів", "припев", "заспів",
+    "altchorus", "alternatechorus", "alternativechorus",
   ]);
+  // repeat marker in any order/notation -> canonical "xN" (2x, х2, (2x) -> x2)
+  function normRepeat(s) {
+    const m = String(s).match(/(\d+)\s*[xх]|[xх]\s*(\d+)/i);
+    return m ? "x" + (m[1] || m[2]) : s;
+  }
+  // "no chord" marker, shown in the chord row like a chord: N.C. / NC / (N.C.)
+  const NC_RE = /^\(?\s*(?:n\.?\s*c\.?|no\s*chord)\s*\)?$/i;
   function headerKey(line) {
     return line
       .toLowerCase()
@@ -310,9 +319,9 @@ const APP_NAME = "New Hope Band";
     if (!base) return text; // unknown / arbitrary note -> leave as written
     let rest = text;
     let rep = "";
-    const repM = rest.match(/[xх]\s*\d+|\(\s*\d+\s*[xх]\s*\)/i);
+    const repM = rest.match(/\(?\s*(?:\d+\s*[xх]|[xх]\s*\d+)\s*\)?/i);
     if (repM) {
-      rep = repM[0].trim().replace(/\s+/g, "");
+      rep = normRepeat(repM[0]); // 2x / (2x) / х2 -> x2
       rest = rest.replace(repM[0], " ");
     }
     const numM = rest.match(/\d+/);
@@ -339,7 +348,7 @@ const APP_NAME = "New Hope Band";
     if (!t || /^\{/.test(t)) return false; // blank or directive
     let chords = 0;
     for (const tok of t.split(/\s+/)) {
-      if (BRACKET_CHORD.test(tok) || CHORD_RE.test(tok)) {
+      if (BRACKET_CHORD.test(tok) || CHORD_RE.test(tok) || NC_RE.test(tok)) {
         chords++;
         continue;
       }
@@ -352,8 +361,9 @@ const APP_NAME = "New Hope Band";
     const out = [];
     for (const tok of line.trim().split(/\s+/)) {
       if (BRACKET_CHORD.test(tok)) out.push(tok);
+      else if (NC_RE.test(tok)) out.push("[N.C.]"); // no-chord marker as a chord
       else if (CHORD_RE.test(tok)) out.push("[" + tok + "]");
-      else if (/[xх\d]/i.test(tok)) out.push(tok); // keep markers like x2 / (2x)
+      else if (/[xх]\s*\d|\d\s*[xх]/i.test(tok)) out.push(normRepeat(tok)); // x2 / (2x) -> x2
       // pure bar lines / dots / dashes are dropped
     }
     return out.join(" ");
@@ -425,8 +435,8 @@ const APP_NAME = "New Hope Band";
         const body = [];
         while (i < lines.length) {
           const l = lines[i];
-          if (!l.trim() || isHeaderLine(l) || /^\{/.test(l.trim())) break;
-          body.push(transformLine(l));
+          if (isHeaderLine(l) || /^\{/.test(l.trim())) break; // next section ends it
+          if (l.trim()) body.push(transformLine(l)); // skip stray blanks inside
           i++;
         }
         if (body.length) {
@@ -434,7 +444,20 @@ const APP_NAME = "New Hope Band";
         }
       }
     }
-    return out.join("\n");
+    // blank lines only BETWEEN sections (never inside a verse/chorus/bridge):
+    // drop every blank, then re-insert exactly one before each section header.
+    const tidy = [];
+    for (const ln of out) {
+      if (!ln.trim()) continue;
+      const s = ln.trim();
+      const isComment = /^\{(?:comment|c|ci)\s*:/i.test(s);
+      const isSoc = /^\{(?:start_of_chorus|soc)\b/i.test(s);
+      const prevComment =
+        tidy.length && /^\{(?:comment|c|ci)\s*:/i.test(tidy[tidy.length - 1].trim());
+      if ((isComment || (isSoc && !prevComment)) && tidy.length) tidy.push("");
+      tidy.push(ln);
+    }
+    return tidy.join("\n");
   }
 
   // Accepts either a plain ChordPro STRING (single language) or an OBJECT:
