@@ -1,8 +1,16 @@
 # 🎶 New Hope Band — Songbook
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8.svg)](https://avdey7.github.io/chn.songs/)
+[![No build step](https://img.shields.io/badge/build-none-brightgreen.svg)](#-tech)
+[![Deployed on GitHub Pages](https://img.shields.io/badge/deploy-GitHub%20Pages-222.svg)](https://avdey7.github.io/chn.songs/)
+
 A simple, beautiful worship **songbook** for our team. Lyrics + chords, live key
-changes, set lists for each service, and a big easy **stage mode** — all from one
-link, on **any phone, tablet, or computer**. Works **offline** once opened. 🙌
+changes, guitar chord diagrams, set lists for each service, and a big easy
+**stage mode** — all from one link, on **any phone, tablet, or computer**.
+Works **offline** once opened. 🙌
+
+**Live app → https://avdey7.github.io/chn.songs/**
 
 <p align="center">
   <img src="docs/img/list-light.png" alt="Song list (light)" width="30%">
@@ -96,6 +104,20 @@ Songs live in a shared online catalog, so an edit shows up for **everyone**.
   the right format automatically (including bilingual songs).
 
 🛠️ **Full setup, hosting, and song-format details are in [`README.txt`](README.txt).**
+
+## 🧰 Tech
+
+- **Vanilla JS, no framework, no build step** — a static site you can open by double-clicking `index.html`.
+- **PWA** — installable, offline-capable via a service worker (network-first app shell, cache-first assets).
+- **[ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS)** renders ChordPro; a small in-house converter turns "chords-above-lyrics" sheets into ChordPro.
+- **Offline guitar chord diagrams** drawn as theme-aware SVG (no external assets).
+- **[Supabase](https://supabase.com/)** hosts the shared song catalog (public read; authenticated admin writes via RLS).
+- **GitHub Pages** hosts the app; **GitHub Actions** deploys on every push.
+
+```bash
+npm run check   # validate the JS (node --check on each file)
+npm run serve   # serve locally at http://localhost:8000
+```
 
 ---
 

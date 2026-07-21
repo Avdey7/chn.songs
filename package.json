@@ -1,0 +1,36 @@
+{
+  "name": "new-hope-songbook",
+  "version": "1.47.0",
+  "private": true,
+  "description": "A worship songbook PWA — lyrics + chords, live transposition, guitar chord diagrams, per-service set lists, offline support, and a true-black stage mode. Static site, no build step.",
+  "keywords": [
+    "worship",
+    "songbook",
+    "chords",
+    "chordpro",
+    "chord-charts",
+    "transpose",
+    "setlist",
+    "pwa",
+    "offline",
+    "music",
+    "guitar",
+    "church",
+    "supabase"
+  ],
+  "homepage": "https://avdey7.github.io/chn.songs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Avdey7/chn.songs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Avdey7/chn.songs/issues"
+  },
+  "author": "Avdey Axonov",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "check": "node --check app.js && node --check convert-core.js && node --check chord-diagrams.js && node --check service-worker.js",
+    "serve": "python3 -m http.server 8000"
+  }
+}

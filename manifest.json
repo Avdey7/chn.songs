@@ -1,7 +1,11 @@
 {
-  "name": "New Hope Band",
+  "id": "/",
+  "name": "New Hope Band Songbook",
   "short_name": "New Hope",
   "description": "New Hope Band worship songbook with chords and live transposition.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["music", "productivity", "lifestyle"],
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
