@@ -638,6 +638,8 @@ const APP_NAME = "New Hope Band";
       }
       if (/^\{(start_of_|end_of_|soc|eoc|sov|eov|sob|eob)/i.test(t)) continue;
       if ((m = t.match(/^\{(?:comment|c|ci)\s*:\s*(.+?)\}$/i))) {
+        // one blank line before each section label (never within a section)
+        if (out.length && out[out.length - 1].trim() !== "") out.push("");
         out.push(m[1].trim());
         continue;
       }

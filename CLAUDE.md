@@ -3,7 +3,7 @@
 A worship songbook PWA for a church team. Static site, no build step. Author: Avdey Axonov. MIT licensed.
 
 ## Hosting / deploy
-- **GitHub Pages**, auto-deploys from branch **`claude/kind-mendel-wSAqa`** (develop & push here).
+- **GitHub Pages**, auto-deploys from branch **`main`** (develop & push here). `main` and `claude/kind-mendel-wSAqa` were merged into one history; keep both in sync (push to both) until the `kind` branch is retired.
 - After ANY change: bump `CACHE_VERSION` in `service-worker.js` AND the build stamp `#ver` in `index.html` (footer, "build N"). The footer build number is how the user verifies the live version (GitHub Pages CDN + service worker can serve stale files ~10 min).
 - Commit + push every change to the branch. Validate JS with `node --check app.js`.
 - **Update this CLAUDE.md with every change**: keep the docs above accurate AND add a line to the Changelog at the bottom (build N - what/why). It's the project's history + knowledge base.
@@ -47,7 +47,7 @@ A worship songbook PWA for a church team. Static site, no build step. Author: Av
 - Impossible enharmonics fixed (Cb→B, Fb→E, B#→C, E#→F).
 - `fixMaj()` (display only): ChordSheetJS's HtmlDivFormatter abbreviates a major-7 quality on render (`Amaj7`→`Ama7`); restore `maj` for display. The stored ChordPro keeps `maj7` (ChordProFormatter doesn't abbreviate). The emitted `ma` is always followed by a digit, so minor (`m7`) and `madd9` are untouched.
 - Bilingual: English version shown first.
-- `chordproToSheet()` reverses ChordPro → friendly sheet for editing old songs.
+- `chordproToSheet()` reverses ChordPro → friendly sheet for editing old songs; it forces one blank line before each section label so the editor (and the "Format" button) never squishes a verse into the next chorus, idempotently.
 
 ## Design system (UI)
 - **Font:** `Inter` for all UI + body (covers Latin **and** Cyrillic so English/Ukrainian match); `JetBrains Mono` for chords/keys/badges. (Replaced Hanken Grotesk, which lacked Cyrillic.)
@@ -80,10 +80,11 @@ sets, activeSet, globalsongs, usersongs, favs, opensong, listmode, size, scrolls
 
 ## Conventions
 - Keep it simple, mobile-first, offline-friendly, free. Save tokens: small focused edits.
-- Bump build stamp + SW version on every change; commit + push to the claude branch.
+- Bump build stamp + SW version on every change; commit + push to `main` (and keep `kind` in sync).
 - Update the Changelog below (and any stale docs above) with every change.
 
 ## Changelog
+- **build 52** (2026-07-20) — Fix: clicking "Format pasted text" once squished a verse into the following chorus (needed a second click). `chordproToSheet()` now forces exactly one blank line before every section label (idempotent), so a single Format is enough. Also updated docs: GitHub Pages now deploys from **`main`** (merged with `kind`; keep both in sync).
 - **build 51** (2026-07-20) — Formatting polish across display + converter: (1) repeat markers normalise to `xN` in any notation (`2x`/`х2`/`(2x)` → `x2`) in section headers and on chord lines; (2) `N.C.` (and `NC`/`(N.C.)`) is recognised as a chord and shown in the chord row as `[N.C.]` (ChordSheetJS renders/transposes it fine); (3) blank lines only appear BETWEEN sections - `standardize` drops intra-section blanks (chorus-body reader now skips blanks and ends only on the next header) and re-adds one before each header, converter mirrors it with `tidyBlanks`; (4) added **Alt Chorus** (alternative/alternate chorus) as a section, and made `convert-core` translate section labels to universal English too (was display-only). Verified in a real browser: `Приспів 2x`→`Chorus x2`, `Alternative Chorus`→`Alt Chorus`, `Куплет 3x`→`Verse x3`, `[N.C.]` renders, and a stray blank inside a chorus is merged.
 - **build 50** (2026-07-20) — "Format pasted text" now leaves the editor in the **chords-over-lyrics** layout (not raw ChordPro): after `smartImport()` it runs the result back through `chordproToSheet()`, the same reverser used when editing an existing song. So every song - however pasted (ChordPro, chords-over-lyrics, or the mangled per-line copy) - edits as tidy chords-over-lyrics, and the song view already renders every song that way. On save, `buildChordPro()` converts the layout back to ChordPro for storage. Verified in a real browser for interleaved + ChordPro inputs.
 - **build 49** (2026-07-20) — Two things. (1) **Paste-import**: a "Format pasted text" button in the editor (both language fields) turns raw copied text into clean ChordPro via `ChordConvert.smartImport()`, and moves a detected title/key into their fields. Handles ChordPro as-is, aligned chords-above-lyrics (`convert()`), and the "mangled" website copy where every chord and lyric fragment lands on its own line (`reconstructInterleaved()` — holds each chord and attaches it to the following word, starts a new line on a capitalised fragment, brackets Intro/bar lines, infers the key). `CHORD_RE` widened for `Ab(add4)`, `Db2/F`, etc. Verified end-to-end in a real browser (interleaved + aligned + ChordPro all convert and render correctly). (2) **Removed em dashes** project-wide (README, docs, package.json, UI strings), replaced with hyphens; the two regex character-classes that intentionally strip em dashes from chord lines were left intact. Also removed the stray `"type":"module"` from package.json (this is classic-script + CommonJS, not ESM).
