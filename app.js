@@ -2295,28 +2295,23 @@ const APP_NAME = "New Hope Band";
     $("ed-save").addEventListener("click", saveEditor);
     $("ed-delete").addEventListener("click", deleteEditor);
     // "Format pasted text": convert whatever is in a text field (chords-above-
-    // lyrics, ChordPro, or the mangled per-line copy) into clean ChordPro,
-    // moving a detected title/key into their fields.
+    // lyrics, ChordPro, or the mangled per-line copy) into the tidy
+    // chords-OVER-lyrics layout the editor uses (same as editing an existing
+    // song), moving a detected title/key into their fields. On save,
+    // buildChordPro turns that layout back into ChordPro for storage.
     function formatEditorField(textId, nameId, keyId, germanId) {
       const ta = $(textId);
       const raw = ta.value;
       if (!raw.trim() || !window.ChordConvert) return;
-      let cp = window.ChordConvert.smartImport(raw, {
+      const cp = window.ChordConvert.smartImport(raw, {
         german: $(germanId).checked,
         title: nameId ? $(nameId).value.trim() : "",
         key: keyId ? $(keyId).value.trim() : "",
       });
-      const mt = cp.match(/\{title:\s*([^}]*)\}/i);
-      const mk = cp.match(/\{key:\s*([^}]*)\}/i);
-      if (mt) {
-        if (nameId && !$(nameId).value.trim()) $(nameId).value = mt[1].trim();
-        cp = cp.replace(/\{title:[^}]*\}\s*\n?/i, "");
-      }
-      if (mk) {
-        if (keyId && !$(keyId).value.trim()) $(keyId).value = mk[1].trim();
-        cp = cp.replace(/\{key:[^}]*\}\s*\n?/i, "");
-      }
-      ta.value = cp.replace(/^\n+/, "");
+      const sheet = chordproToSheet(cp); // ChordPro -> chords-over-lyrics
+      ta.value = sheet.text;
+      if (nameId && sheet.name && !$(nameId).value.trim()) $(nameId).value = sheet.name;
+      if (keyId && sheet.key && !$(keyId).value.trim()) $(keyId).value = sheet.key;
     }
     $("ed-format").addEventListener("click", () =>
       formatEditorField("ed-text", "ed-name", "ed-key", "ed-german"),
