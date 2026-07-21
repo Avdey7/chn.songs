@@ -515,9 +515,16 @@ const APP_NAME = "New Hope Band";
       versions.map((v) => plainText(v.raw)).join(" ")
     ).toLowerCase();
     const tags = (typeof entry === "object" && entry._tags) || [];
+    // tempo (BPM) is a song-level {tempo: N} directive in any version's text
+    let bpm = 0;
+    for (const v of versions) {
+      const bm = v.raw.match(/\{(?:tempo|bpm)\s*:\s*(\d{2,3})\b/i);
+      if (bm) { bpm = parseInt(bm[1], 10); break; }
+    }
     return {
       title,
       key: versions[0].key || "",
+      bpm,
       versions,
       langs,
       langAbbrs,
@@ -598,7 +605,14 @@ const APP_NAME = "New Hope Band";
 
   // ---- add / edit a song in-app -------------------------------------------
   let editId = null;
-  function buildChordPro(name, key, lang, text, german) {
+  function buildChordPro(name, key, lang, text, german, bpm) {
+    const tempo = bpm ? String(bpm).replace(/\D/g, "") : "";
+    const withTempo = (t) => {
+      if (!tempo) return t;
+      return /\{tempo:/i.test(t)
+        ? t.replace(/\{tempo:[^}]*\}/i, "{tempo: " + tempo + "}")
+        : "{tempo: " + tempo + "}\n" + t;
+    };
     // ChordPro only if it has INLINE chords ([G]word) or {directives};
     // bracketed section labels like [Verse 1] must still go through the converter
     const looksCP = /\][^\s\]]/.test(text) || /\{[^}]*\}/.test(text);
@@ -612,18 +626,21 @@ const APP_NAME = "New Hope Band";
         t = /\{key:/i.test(t)
           ? t.replace(/\{key:[^}]*\}/i, "{key: " + key + "}")
           : "{key: " + key + "}\n" + t;
-      return t;
+      return withTempo(t);
     }
-    return window.ChordConvert
-      ? window.ChordConvert.convert(text, { title: name, key, german })
-      : (name ? "{title: " + name + "}\n" : "") + text;
+    return withTempo(
+      window.ChordConvert
+        ? window.ChordConvert.convert(text, { title: name, key, german })
+        : (name ? "{title: " + name + "}\n" : "") + text,
+    );
   }
   const keyOf = (t) => ((t || "").match(/\{key:\s*([^}]+)\}/i) || [])[1]?.trim() || "";
   // ChordPro -> friendly "chords above lyrics" sheet (for editing old songs)
   function chordproToSheet(cp) {
     const lines = String(cp).replace(/\r\n?/g, "\n").split("\n");
     let name = "",
-      key = "";
+      key = "",
+      bpm = "";
     const out = [];
     for (const line of lines) {
       const t = line.trim();
@@ -634,6 +651,10 @@ const APP_NAME = "New Hope Band";
       }
       if ((m = t.match(/^\{key:\s*([^}]*)\}$/i))) {
         key = m[1].trim();
+        continue;
+      }
+      if ((m = t.match(/^\{(?:tempo|bpm):\s*(\d{2,3})\}$/i))) {
+        bpm = m[1];
         continue;
       }
       if (/^\{(start_of_|end_of_|soc|eoc|sov|eov|sob|eob)/i.test(t)) continue;
@@ -668,12 +689,14 @@ const APP_NAME = "New Hope Band";
     return {
       name,
       key,
+      bpm,
       text: out.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
     };
   }
   function fillEditor(f) {
     $("ed-name").value = f.name || "";
     $("ed-tags").value = f.tags || "";
+    $("ed-bpm").value = f.bpm || "";
     $("ed-key").value = f.key || "";
     $("ed-lang").value = f.lang || "";
     $("ed-german").checked = !!f.german;
@@ -701,7 +724,7 @@ const APP_NAME = "New Hope Band";
         // no saved source -> reverse the ChordPro into the friendly format
         if (typeof g.data === "string") {
           const s = chordproToSheet(g.data);
-          f = { name: g.title || s.name, key: s.key, text: s.text };
+          f = { name: g.title || s.name, key: s.key, bpm: s.bpm, text: s.text };
         } else if (g.data && g.data.versions) {
           const v = g.data.versions;
           const s1 = chordproToSheet(v[0] ? v[0].text : "");
@@ -709,6 +732,7 @@ const APP_NAME = "New Hope Band";
             name: g.title || s1.name,
             lang: v[0] ? v[0].lang : "",
             key: s1.key,
+            bpm: s1.bpm,
             text: s1.text,
           };
           if (v[1]) {
@@ -777,10 +801,11 @@ const APP_NAME = "New Hope Band";
       closeEditor();
       return;
     }
-    const cp1 = buildChordPro(name, p1.key, p1.lang, p1.text, p1.german);
+    const bpm = ($("ed-bpm").value || "").replace(/\D/g, "");
+    const cp1 = buildChordPro(name, p1.key, p1.lang, p1.text, p1.german, bpm);
     let data;
     if (biling) {
-      const cp2 = buildChordPro(name, p2.key, p2.lang, p2.text, p2.german);
+      const cp2 = buildChordPro(name, p2.key, p2.lang, p2.text, p2.german, bpm);
       data = {
         title: name || undefined,
         versions: [
@@ -793,7 +818,7 @@ const APP_NAME = "New Hope Band";
     }
     const tags = parseTags($("ed-tags").value).join(", ");
     const src = JSON.stringify({
-      name, biling: !!biling, tags,
+      name, biling: !!biling, tags, bpm,
       key: p1.key, lang: p1.lang, german: p1.german, text: p1.text,
       key2: p2.key, lang2: p2.lang, german2: p2.german, text2: p2.text,
     });
@@ -837,7 +862,7 @@ const APP_NAME = "New Hope Band";
     }
     // device fallback (single language)
     const list = getUserSongs();
-    const rec = { name, key: p1.key, lang: p1.lang, german: p1.german, text: p1.text, chordpro: cp1 };
+    const rec = { name, key: p1.key, lang: p1.lang, german: p1.german, text: p1.text, bpm, chordpro: cp1 };
     if (editId) {
       const s = list.find((x) => x.id === editId);
       if (s) Object.assign(s, rec);
@@ -1664,8 +1689,16 @@ const APP_NAME = "New Hope Band";
 
     let now = keyName(v.key, delta);
     if (now) now = fixEnharmonic(now);
-    keyNowEl.textContent =
+    const keyLbl =
       now || (delta === 0 ? "\u2014" : delta > 0 ? "+" + delta : String(delta));
+    keyNowEl.textContent = keyLbl;
+    // quick-transpose bar (song header)
+    $("qt-key").textContent = keyLbl;
+    $("qt-reset").classList.toggle("hidden", delta === 0);
+    const bpm = current !== null ? songs[current].bpm : 0;
+    const bpmEl = $("qt-bpm");
+    bpmEl.classList.toggle("hidden", !bpm);
+    if (bpm) bpmEl.textContent = "\u2669 " + bpm + " BPM";
     if (v.key) {
       const offset =
         delta === 0 ? "" : "  (" + (delta > 0 ? "+" + delta : delta) + ")";
@@ -2194,11 +2227,23 @@ const APP_NAME = "New Hope Band";
   let scrolling = false,
     rafId = null,
     scrollAcc = 0;
-  let scrollSpeed = parseFloat(store.get("scrollspeed", "0.6"));
+  let scrollMult = parseFloat(store.get("scrollmult", "1")) || 1;
+  let scrollLastTs = 0;
   const scrollBtn = $("scroll-btn");
-  function tick() {
+  // effective auto-scroll speed in px/sec: BPM-derived when the song has a
+  // tempo (faster songs scroll faster), else a sensible default; scaled by the
+  // current text size and the user's slow/fast trim (scrollMult).
+  function scrollPPS() {
+    const bpm = current !== null ? songs[current].bpm : 0;
+    const base = bpm ? bpm * 0.42 : 34; // px per second
+    return Math.max(6, base * (size || 1) * scrollMult);
+  }
+  function tick(ts) {
     if (!scrolling) return;
-    scrollAcc += scrollSpeed;
+    if (!scrollLastTs) scrollLastTs = ts;
+    const dt = Math.min(80, ts - scrollLastTs); // clamp big gaps (tab away)
+    scrollLastTs = ts;
+    scrollAcc += (scrollPPS() * dt) / 1000;
     if (scrollAcc >= 1) {
       const px = Math.floor(scrollAcc);
       window.scrollBy(0, px);
@@ -2214,6 +2259,8 @@ const APP_NAME = "New Hope Band";
   function startScroll() {
     if (scrolling) return;
     scrolling = true;
+    scrollLastTs = 0;
+    scrollAcc = 0;
     scrollBtn.classList.add("on");
     scrollBtn.innerHTML = ICON_PAUSE;
     progressEl.classList.add("scrolling");
@@ -2300,6 +2347,10 @@ const APP_NAME = "New Hope Band";
     $("key-down").addEventListener("click", () => transpose(-1));
     $("key-reset").addEventListener("click", resetTranspose);
     $("key-save").addEventListener("click", bakeTranspose);
+    // quick transpose in the song header (mirrors the FAB key controls)
+    $("qt-up").addEventListener("click", () => transpose(1));
+    $("qt-down").addEventListener("click", () => transpose(-1));
+    $("qt-reset").addEventListener("click", resetTranspose);
     // chord popover (diagram + admin edit)
     sheetEl.addEventListener("click", (e) => {
       const c = e.target.closest(".chord");
@@ -2344,6 +2395,21 @@ const APP_NAME = "New Hope Band";
     $("ed-format2").addEventListener("click", () =>
       formatEditorField("ed-text2", null, "ed-key2", "ed-german2"),
     );
+    // tap tempo: average the interval of recent taps into a BPM
+    let taps = [];
+    $("ed-tap").addEventListener("click", () => {
+      const now = performance.now();
+      if (taps.length && now - taps[taps.length - 1] > 2000) taps = []; // new count
+      taps.push(now);
+      if (taps.length > 8) taps.shift();
+      if (taps.length >= 2) {
+        let sum = 0;
+        for (let i = 1; i < taps.length; i++) sum += taps[i] - taps[i - 1];
+        const bpm = Math.round(60000 / (sum / (taps.length - 1)));
+        if (bpm >= 30 && bpm <= 300) $("ed-bpm").value = bpm;
+      }
+      $("ed-tap").textContent = "🥁 " + ($("ed-bpm").value || "tap") + (($("ed-bpm").value) ? " BPM" : " tempo");
+    });
     $("ed-biling").addEventListener("change", () =>
       $("ed-block2").classList.toggle("hidden", !$("ed-biling").checked),
     );
@@ -2547,12 +2613,12 @@ const APP_NAME = "New Hope Band";
       scrolling ? stopScroll() : startScroll(),
     );
     $("scroll-fast").addEventListener("click", () => {
-      scrollSpeed = Math.min(6, scrollSpeed + 0.4);
-      store.set("scrollspeed", String(scrollSpeed));
+      scrollMult = Math.min(4, scrollMult * 1.15);
+      store.set("scrollmult", String(scrollMult));
     });
     $("scroll-slow").addEventListener("click", () => {
-      scrollSpeed = Math.max(0.3, scrollSpeed - 0.4);
-      store.set("scrollspeed", String(scrollSpeed));
+      scrollMult = Math.max(0.3, scrollMult / 1.15);
+      store.set("scrollmult", String(scrollMult));
     });
     window.addEventListener("popstate", () => {
       if (!$("editor").classList.contains("hidden")) {
