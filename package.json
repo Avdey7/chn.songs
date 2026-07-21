@@ -2,7 +2,7 @@
   "name": "new-hope-songbook",
   "version": "1.47.0",
   "private": true,
-  "description": "A worship songbook PWA — lyrics + chords, live transposition, guitar chord diagrams, per-service set lists, offline support, and a true-black stage mode. Static site, no build step.",
+  "description": "A worship songbook PWA - lyrics + chords, live transposition, guitar chord diagrams, per-service set lists, offline support, and a true-black stage mode. Static site, no build step.",
   "keywords": [
     "worship",
     "songbook",
@@ -28,7 +28,6 @@
   },
   "author": "Avdey Axonov",
   "license": "MIT",
-  "type": "module",
   "scripts": {
     "check": "node --check app.js && node --check convert-core.js && node --check chord-diagrams.js && node --check service-worker.js",
     "serve": "python3 -m http.server 8000"

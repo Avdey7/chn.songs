@@ -1,9 +1,9 @@
 /* ============================================================================
-   New Hope Band songbook — app logic. You normally won't need to touch this
-   file — add songs in songs.js. Edit the app name on the next line if you like.
+   New Hope Band songbook - app logic. You normally won't need to touch this
+   file - add songs in songs.js. Edit the app name on the next line if you like.
 
    Author: Avdey Axonov
-   License: MIT (see LICENSE) — Copyright (c) 2026 Avdey Axonov
+   License: MIT (see LICENSE) - Copyright (c) 2026 Avdey Axonov
    ========================================================================== */
 const APP_NAME = "New Hope Band";
 
@@ -365,7 +365,7 @@ const APP_NAME = "New Hope Band";
     // word; collapse it (but keep "[G] [C]" gaps on chord-only lines).
     // Only when the chord stands on its own (preceded by start/space), e.g.
     // "me [G] close" -> "me [G]close". When the chord is glued to the previous
-    // word ("me[G] close"), the following space is a real word gap — keep it,
+    // word ("me[G] close"), the following space is a real word gap - keep it,
     // otherwise the words merge ("meclose").
     return line.replace(/(^|\s)(\[[^\]]*\])\s+(?=[^\s[{])/g, "$1$2");
   }
@@ -454,7 +454,7 @@ const APP_NAME = "New Hope Band";
       // Lazy parse: the list only needs the title/key, which we read cheaply by
       // regex (verified identical to ChordSheetJS across the whole catalog).
       // The expensive ChordSheetJS parse is deferred to ensureParsed(), run
-      // when a song is actually opened — saves parsing every song on load and
+      // when a song is actually opened - saves parsing every song on load and
       // on every refreshGlobal.
       const mt = v.text.match(/\{(?:title|t)\s*:\s*([^}]*)\}/i);
       const mk = v.text.match(/\{(?:key|k)\s*:\s*([^}]*)\}/i);
@@ -719,8 +719,8 @@ const APP_NAME = "New Hope Band";
     $("editor").classList.add("hidden");
     document.documentElement.classList.remove("noscroll");
   }
-  // On desktop (mouse/trackpad), an accidental horizontal gesture — e.g. an
-  // overscroll while drag-selecting text right-to-left — fires a history back
+  // On desktop (mouse/trackpad), an accidental horizontal gesture - e.g. an
+  // overscroll while drag-selecting text right-to-left - fires a history back
   // that would close the editor and discard unsaved edits. There we keep the
   // editor open on stray back events and close only via the Close button.
   const editKeepOpen =
@@ -1098,13 +1098,13 @@ const APP_NAME = "New Hope Band";
       setListMode("set");
       renderSetBar();
       if (r.dup) {
-        alert('You already have "' + s.name + '" — switched to it.');
+        alert('You already have "' + s.name + '" - switched to it.');
       } else {
         const have = s.songs.filter((t) => songs.some((x) => x.title === t)).length;
         alert(
           'Imported "' +
             s.name +
-            '" — ' +
+            '" - ' +
             have +
             " of " +
             s.songs.length +
@@ -1317,7 +1317,7 @@ const APP_NAME = "New Hope Band";
     store.set("favs", JSON.stringify(a));
   }
   // a renamed song keeps its favorite star (favorites are matched by title,
-  // same as sets — see renameInSets)
+  // same as sets - see renameInSets)
   function renameInFavs(oldT, newT) {
     const a = getFavs();
     const i = a.indexOf(oldT);
@@ -1443,7 +1443,7 @@ const APP_NAME = "New Hope Band";
           renderList();
         });
         tools.appendChild(rm);
-        // reorder — only when unfiltered, so order maps to the whole set.
+        // reorder - only when unfiltered, so order maps to the whole set.
         // Drag the grip (mouse) OR press-and-hold anywhere on the row (touch).
         if (!q) {
           const drag = document.createElement("button");
@@ -1689,7 +1689,7 @@ const APP_NAME = "New Hope Band";
   function restoreOpen() {
     // Resume to the LIST, not the song. Auto-opening the last song at launch
     // put the app in the song view backed by a history entry created during
-    // page load — which Android Chrome voids, so the first Back gesture exited
+    // page load - which Android Chrome voids, so the first Back gesture exited
     // the app (worked only after a few seconds / an interaction). Landing on
     // the list keeps Back predictable. To preserve the resume feel we scroll
     // the remembered song into view and briefly highlight it (one-tap reopen).
@@ -1808,7 +1808,7 @@ const APP_NAME = "New Hope Band";
         wakeLock = null;
       });
     } catch {
-      /* denied or unsupported — silently ignore */
+      /* denied or unsupported - silently ignore */
     }
   }
   function releaseWakeLock() {
@@ -1962,7 +1962,7 @@ const APP_NAME = "New Hope Band";
         ch = CS.Chord.parse(core);
       } catch {}
       if (!ch) {
-        cpError("Chord not recognised — reset transpose to edit it as-is.");
+        cpError("Chord not recognised - reset transpose to edit it as-is.");
         return;
       }
       core = fixEnharmonic(ch.transpose(-delta).toString());
@@ -2294,6 +2294,36 @@ const APP_NAME = "New Hope Band";
     $("ed-close").addEventListener("click", closeEditor);
     $("ed-save").addEventListener("click", saveEditor);
     $("ed-delete").addEventListener("click", deleteEditor);
+    // "Format pasted text": convert whatever is in a text field (chords-above-
+    // lyrics, ChordPro, or the mangled per-line copy) into clean ChordPro,
+    // moving a detected title/key into their fields.
+    function formatEditorField(textId, nameId, keyId, germanId) {
+      const ta = $(textId);
+      const raw = ta.value;
+      if (!raw.trim() || !window.ChordConvert) return;
+      let cp = window.ChordConvert.smartImport(raw, {
+        german: $(germanId).checked,
+        title: nameId ? $(nameId).value.trim() : "",
+        key: keyId ? $(keyId).value.trim() : "",
+      });
+      const mt = cp.match(/\{title:\s*([^}]*)\}/i);
+      const mk = cp.match(/\{key:\s*([^}]*)\}/i);
+      if (mt) {
+        if (nameId && !$(nameId).value.trim()) $(nameId).value = mt[1].trim();
+        cp = cp.replace(/\{title:[^}]*\}\s*\n?/i, "");
+      }
+      if (mk) {
+        if (keyId && !$(keyId).value.trim()) $(keyId).value = mk[1].trim();
+        cp = cp.replace(/\{key:[^}]*\}\s*\n?/i, "");
+      }
+      ta.value = cp.replace(/^\n+/, "");
+    }
+    $("ed-format").addEventListener("click", () =>
+      formatEditorField("ed-text", "ed-name", "ed-key", "ed-german"),
+    );
+    $("ed-format2").addEventListener("click", () =>
+      formatEditorField("ed-text2", null, "ed-key2", "ed-german2"),
+    );
     $("ed-biling").addEventListener("change", () =>
       $("ed-block2").classList.toggle("hidden", !$("ed-biling").checked),
     );
@@ -2304,7 +2334,7 @@ const APP_NAME = "New Hope Band";
       }
     });
     $("ed-logout").addEventListener("click", logoutAdmin);
-    // NB: no click-outside-to-close on the editor backdrop — a text selection
+    // NB: no click-outside-to-close on the editor backdrop - a text selection
     // that ends on the dimmed backdrop would fire a click there and discard
     // unsaved edits. The editor closes only via the Close button (or Save).
     $("pdf-btn").addEventListener("click", () => {
@@ -2327,7 +2357,7 @@ const APP_NAME = "New Hope Band";
       updateFavBtn();
     });
     $("ed-restore").addEventListener("click", restorePrev);
-    // back-to-top (list view only) — quick custom ease (native "smooth" is slow
+    // back-to-top (list view only) - quick custom ease (native "smooth" is slow
     // and scales with distance; this is a fixed, snappy ~260ms)
     const totop = $("totop");
     function scrollToTopFast() {
@@ -2465,7 +2495,7 @@ const APP_NAME = "New Hope Band";
         gotoNav(dx < 0 ? 1 : -1);
       }
     }
-    // touch (phones) — passive so vertical scrolling is unaffected
+    // touch (phones) - passive so vertical scrolling is unaffected
     window.addEventListener(
       "touchstart",
       (e) => {

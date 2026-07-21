@@ -1,11 +1,11 @@
-/* convert-core.js — turns a "chords above lyrics" sheet into ChordPro.
+/* convert-core.js - turns a "chords above lyrics" sheet into ChordPro.
    Pure functions, no DOM. Used by converter.html and by the test harness. */
 (function (root) {
   "use strict";
 
   // ---- chord detection ----
   // root note A-H (H = German/Slavic B), optional accidental, chord body, optional /bass
-  const CHORD_RE = /^[A-H](?:#|b)?(?:maj|min|sus|add|dim|aug|m|M|\+|°|ø|h|[0-9]|b|#)*(?:\/[A-H](?:#|b)?)?$/;
+  const CHORD_RE = /^[A-H](?:#|b)?(?:maj|min|sus|add|dim|aug|m|M|\+|°|ø|h|[0-9]|b|#|\([^)]*\))*(?:\/[A-H](?:#|b)?(?:[0-9]|\([^)]*\))*)?$/;
   // decoration tokens on a chord line: bars, strum slashes, repeat marks, "x2", "(2x)"
   const DECO_RE = /^[|/().x\d\-–—:]+$/i;
 
@@ -49,7 +49,7 @@
   }
   // drop surrounding [ ] from a header label so "[VERSE]" -> "VERSE"
   function headerLabel(line) {
-    return line.trim().replace(/^\[\s*|\s*\]$/g, "").trim();
+    return line.trim().replace(/^\[\s*|\s*\]$/g, "").replace(/\s*:\s*$/, "").trim();
   }
 
   // ---- German/Slavic note conversion (H->B natural, B->Bb) ----
@@ -128,7 +128,133 @@
     return out.join("\n");
   }
 
-  const api = { convert, isChord, isChordLine, isHeader, mergeLines, deGerman };
+  // ---- cleanup of pasted text (nbsp, tabs, fences, zero-width, blank runs) ----
+  function clean(text) {
+    return String(text)
+      .replace(/\r\n?/g, "\n")
+      .replace(/^```.*$/gm, "")            // drop ``` code fences
+      .replace(/[   ]/g, " ") // non-breaking spaces -> space
+      .replace(/[​-‍﻿]/g, "") // zero-width chars
+      .replace(/\t/g, "    ")
+      .replace(/[ \t]+$/gm, "")            // trailing spaces per line
+      .replace(/\n{3,}/g, "\n\n");         // collapse big blank runs
+  }
+  const isChordProText = (t) =>
+    /\[[A-H][^\]]{0,12}\]/.test(t) || /\{\s*(title|t|key|k|c|comment|start_of|end_of)\b/i.test(t);
+
+  // a line that is ONLY chords/decorations with exactly one real chord token
+  function isSingleChordLine(line) {
+    const toks = line.trim().split(/\s+/).filter(Boolean);
+    if (!toks.length) return false;
+    let chords = 0;
+    for (const t of toks) {
+      if (isChord(t)) { chords++; continue; }
+      if (isDeco(t)) continue;
+      return false;
+    }
+    return chords === 1;
+  }
+  // Heuristic: is this the "mangled website copy" where each chord and each
+  // lyric fragment sits on its own line (chords never aligned over lyrics)?
+  function looksInterleaved(lines) {
+    let single = 0, chordLines = 0, nonEmpty = 0;
+    for (const l of lines) {
+      if (!l.trim()) continue;
+      nonEmpty++;
+      if (isChordLine(l)) { chordLines++; if (isSingleChordLine(l)) single++; }
+    }
+    // lots of single-chord lines, and (almost) every chord line is a lone chord
+    return chordLines >= 3 && single / chordLines >= 0.7 && single / nonEmpty >= 0.25;
+  }
+
+  // Rebuild interleaved paste into inline ChordPro. Lyric fragments are
+  // concatenated verbatim (they carry their own spacing); each lone chord is
+  // inserted inline at that point; a new lyric line starts when a fragment
+  // begins with a capital letter (line starts are capitalised, mid-line
+  // continuations after a chord are lower-case).
+  function reconstructInterleaved(text, german) {
+    const lines = clean(text).split("\n");
+    const out = [];
+    let buf = "", hasLyric = false, pending = [];
+    // place any held chords into the current line, then reset them
+    const placePending = () => {
+      for (const sym of pending) {
+        if (buf && !/[\s]$/.test(buf) && !/\]$/.test(buf)) buf += " ";
+        buf += "[" + sym + "]";
+      }
+      pending = [];
+    };
+    const flush = () => {
+      placePending();                    // trailing chords stay on this line
+      const s = buf.replace(/\s+$/, "");
+      if (s) out.push(s);
+      buf = ""; hasLyric = false;
+    };
+    const blankOut = () => { if (out.length && out[out.length - 1] !== "") out.push(""); };
+    for (const raw of lines) {
+      const line = raw.trim().replace(/\|/g, " | "); // unglue bars from chords
+      if (!line.trim()) { flush(); blankOut(); continue; }
+      if (isHeader(line.trim())) { flush(); blankOut(); out.push("{comment: " + headerLabel(line.trim()) + "}"); continue; }
+      if (isChordLine(line)) {
+        const toks = line.split(/\s+/).filter(Boolean);
+        const chords = toks.filter(isChord).length;
+        // a full chord-only / bar line (Intro, turnaround): keep as its own line
+        if (chords >= 2 || /\|/.test(line)) { flush(); out.push(bracketChordOnly(line, german).replace(/ {2,}/g, " ").trim()); continue; }
+        for (const t of toks) if (isChord(t)) pending.push(mapChord(t, german)); // hold for the next word
+        continue;
+      }
+      // lyric fragment: a capitalised start begins a new line
+      const frag = line.trim();
+      if (hasLyric && /^[A-ZА-ЯЁЇІЄҐ]/.test(frag)) {
+        // held chords lead the NEW line (a line usually starts on a chord),
+        // rather than trailing the previous one
+        const s = buf.replace(/\s+$/, ""); if (s) out.push(s); buf = ""; hasLyric = false;
+      }
+      placePending();                    // held chords attach to THIS word (chord over the syllable)
+      if (buf && !/[\s]$/.test(buf) && !/\]$/.test(buf)) buf += " ";
+      buf += frag;
+      hasLyric = true;
+    }
+    flush();
+    while (out.length && out[out.length - 1] === "") out.pop();
+    return out.join("\n");
+  }
+
+  // Guess a key from the first chord (root only), for pre-filling the editor.
+  function guessKey(text, german) {
+    const m = clean(text).match(/(?:^|\s|\|)([A-H](?:#|b)?(?:m|min)?)(?=\s|\/|\||$|[0-9(])/m);
+    if (!m) return "";
+    let k = german ? deGerman(m[1]) : m[1];
+    return k;
+  }
+
+  // ---- one entry point: paste anything, get clean ChordPro ----
+  // opts: {title, key, german}. Auto-detects ChordPro vs aligned vs interleaved.
+  function smartImport(text, opts) {
+    opts = opts || {};
+    const german = !!opts.german;
+    let body;
+    const cleaned = clean(text);
+    if (isChordProText(cleaned)) {
+      body = cleaned.replace(/\n{3,}/g, "\n\n").replace(/^\n+|\n+$/g, "");
+    } else if (looksInterleaved(cleaned.split("\n"))) {
+      body = reconstructInterleaved(cleaned, german);
+    } else {
+      body = convert(cleaned, { german }); // aligned "chords above lyrics"
+    }
+    const head = [];
+    if (opts.title) head.push("{title: " + String(opts.title).trim() + "}");
+    const key = opts.key || guessKey(cleaned, german);
+    if (key) head.push("{key: " + String(key).trim() + "}");
+    // don't duplicate a {title}/{key} the body already carries
+    const bodyHasTitle = /\{\s*(title|t)\s*:/i.test(body);
+    const bodyHasKey = /\{\s*(key|k)\s*:/i.test(body);
+    const heads = head.filter((h) =>
+      !(bodyHasTitle && /^\{title/i.test(h)) && !(bodyHasKey && /^\{key/i.test(h)));
+    return (heads.length ? heads.join("\n") + "\n\n" : "") + body;
+  }
+
+  const api = { convert, smartImport, guessKey, isChord, isChordLine, isHeader, mergeLines, deGerman };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.ChordConvert = api;
 })(typeof window !== "undefined" ? window : globalThis);
