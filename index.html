@@ -563,7 +563,12 @@
         border: 1px solid var(--border);
         background: var(--surface-2);
         border-radius: 999px;
-        padding: 7px 13px;
+        padding: 7px 0;
+        /* fixed size so the label swap (Tap tempo / ♩ N BPM) never resizes it */
+        width: 118px;
+        text-align: center;
+        white-space: nowrap;
+        flex: none;
       }
       .qbpm:active {
         background: var(--accent-soft);
@@ -787,6 +792,17 @@
         color: var(--accent);
         margin: 0.2em 0 0.5em;
         scroll-margin-top: 150px; /* land below the sticky control panel */
+      }
+      /* a note/annotation ("*..." line): quieter, smaller, italic - not a label */
+      .sheet .comment.note {
+        font-family: "Inter", sans-serif;
+        font-size: 0.82em;
+        font-weight: 500;
+        font-style: italic;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--muted);
+        margin: 0 0 0.35em;
       }
       .sheet h1.title {
         display: none;
@@ -1781,7 +1797,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 54</span>
+          &middot; <span id="ver">build 55</span>
         </footer>
       </div>
 

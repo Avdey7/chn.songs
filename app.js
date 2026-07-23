@@ -396,6 +396,13 @@ const APP_NAME = "New Hope Band";
     while (i < lines.length) {
       const line = lines[i];
       const t = line.trim();
+      // a note/annotation: a line starting with "*" (kept as a {comment:*...},
+      // rendered smaller + italic under/near the section, not a section label)
+      if (t.startsWith("*")) {
+        out.push("{comment: " + t + "}");
+        i++;
+        continue;
+      }
       const comm = t.match(/^\{(?:comment|c|ci)\s*:\s*(.+?)\}$/i);
       const bt = bracketTokens(t); // ["CHORUS","x2"] for "[CHORUS] [x2]"
       let isHeader = false,
@@ -436,7 +443,8 @@ const APP_NAME = "New Hope Band";
         while (i < lines.length) {
           const l = lines[i];
           if (isHeaderLine(l) || /^\{/.test(l.trim())) break; // next section ends it
-          if (l.trim()) body.push(transformLine(l)); // skip stray blanks inside
+          if (l.trim().startsWith("*")) body.push("{comment: " + l.trim() + "}");
+          else if (l.trim()) body.push(transformLine(l)); // skip stray blanks inside
           i++;
         }
         if (body.length) {
@@ -450,7 +458,9 @@ const APP_NAME = "New Hope Band";
     for (const ln of out) {
       if (!ln.trim()) continue;
       const s = ln.trim();
-      const isComment = /^\{(?:comment|c|ci)\s*:/i.test(s);
+      // section labels get a blank before them; notes ({comment: *...}) hug
+      // the section, so they don't
+      const isComment = /^\{(?:comment|c|ci)\s*:\s*(?!\*)/i.test(s);
       const isSoc = /^\{(?:start_of_chorus|soc)\b/i.test(s);
       const prevComment =
         tidy.length && /^\{(?:comment|c|ci)\s*:/i.test(tidy[tidy.length - 1].trim());
@@ -1686,6 +1696,14 @@ const APP_NAME = "New Hope Band";
       if (!t || !/^ | $/.test(t)) return;
       l.textContent = t.replace(/^ +| +$/g, (m) => NBSP.repeat(m.length));
     });
+    // notes/annotations: a {comment:} whose text starts with "*" is a note, not
+    // a section label -> render smaller + italic, drop the leading "*"
+    sheetEl.querySelectorAll(".comment").forEach((c) => {
+      if (/^\s*\*/.test(c.textContent)) {
+        c.classList.add("note");
+        c.textContent = c.textContent.replace(/^\s*\*\s*/, "");
+      }
+    });
 
     let now = keyName(v.key, delta);
     if (now) now = fixEnharmonic(now);
@@ -2306,7 +2324,7 @@ const APP_NAME = "New Hope Band";
   // current text size and the user's slow/fast trim (scrollMult).
   function scrollPPS() {
     const bpm = current !== null ? songs[current].bpm : 0;
-    const base = bpm ? bpm * 0.42 : 34; // px per second
+    const base = bpm ? bpm * 0.25 : 34; // px per second (gentle; slow/fast trims)
     return Math.max(6, base * (size || 1) * scrollMult);
   }
   function tick(ts) {
