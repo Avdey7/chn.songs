@@ -396,38 +396,43 @@ const APP_NAME = "New Hope Band";
     while (i < lines.length) {
       const line = lines[i];
       const t = line.trim();
-      // a note/annotation: a line starting with "*" (kept as a {comment:*...},
-      // rendered smaller + italic under/near the section, not a section label)
+      // a standalone note/annotation line ("*...") not attached to a header
       if (t.startsWith("*")) {
         out.push("{comment: " + t + "}");
         i++;
         continue;
       }
-      const comm = t.match(/^\{(?:comment|c|ci)\s*:\s*(.+?)\}$/i);
-      const bt = bracketTokens(t); // ["CHORUS","x2"] for "[CHORUS] [x2]"
+      // split a trailing "*note" off a header line ("Verse 1 *somethin")
+      let headText = t,
+        inlineNote = "";
+      const hn = t.match(/^(.+?)\s+(\*.+)$/);
+      if (hn && (isHeaderLine(hn[1]) || bracketTokens(hn[1]))) {
+        headText = hn[1].trim();
+        inlineNote = hn[2].trim();
+      }
+      const comm = headText.match(/^\{(?:comment|c|ci)\s*:\s*(.+?)\}$/i);
+      const bt = bracketTokens(headText); // ["CHORUS","x2"] for "[CHORUS] [x2]"
       let isHeader = false,
         isChorus = false,
-        emit = line;
-      if (isHeaderLine(line)) {
+        labelStr = "";
+      if (isHeaderLine(headText)) {
         isHeader = true;
-        emit = "{comment: " + englishLabel(t) + "}"; // bare word -> English label
-        isChorus = CHORUS_KEYS.has(headerKey(t));
+        labelStr = englishLabel(headText); // bare word -> English label
+        isChorus = CHORUS_KEYS.has(headerKey(headText));
       } else if (comm) {
         isHeader = true; // translate the existing comment to English too
-        emit = "{comment: " + englishLabel(comm[1]) + "}";
+        labelStr = englishLabel(comm[1]);
         isChorus = CHORUS_KEYS.has(headerKey(comm[1]));
       } else if (bt) {
         const hasSection = bt.some((x) => SECTION_KEYS.has(headerKey(x)));
         const hasChord = bt.some((x) => CHORD_RE.test(x));
         if (hasSection) {
-          // bracketed label (+ optional marker) -> English {comment:} label
           isHeader = true;
-          emit = "{comment: " + englishLabel(bt.join(" ")) + "}";
+          labelStr = englishLabel(bt.join(" "));
           isChorus = bt.some((x) => CHORUS_KEYS.has(headerKey(x)));
         } else if (!hasChord) {
-          // marker-only line like "[x2]" -> small label, not a chord
-          isHeader = true;
-          emit = "{comment: " + bt.join(" ") + "}";
+          isHeader = true; // marker-only line like "[x2]" -> small label
+          labelStr = bt.join(" ");
         }
         // else: real chords (e.g. "[G] [C]") -> leave for chord-line handling
       }
@@ -436,8 +441,18 @@ const APP_NAME = "New Hope Band";
         i++;
         continue;
       }
-      out.push(emit);
       i++;
+      // a section's notes render INLINE with its label: the inline "*note" plus
+      // any "*..." lines that immediately follow the header. Combined into the
+      // one {comment:} so renderSheet can style the note part inline.
+      const notes = [];
+      if (inlineNote) notes.push(inlineNote.replace(/^\*+\s*/, ""));
+      while (i < lines.length && lines[i].trim().startsWith("*")) {
+        notes.push(lines[i].trim().replace(/^\*+\s*/, ""));
+        i++;
+      }
+      out.push("{comment: " + labelStr + notes.map((n) => " *" + n).join("") + "}");
+
       if (isChorus && !/^\{(start_of_chorus|soc)\b/i.test((lines[i] || "").trim())) {
         const body = [];
         while (i < lines.length) {
@@ -1696,12 +1711,26 @@ const APP_NAME = "New Hope Band";
       if (!t || !/^ | $/.test(t)) return;
       l.textContent = t.replace(/^ +| +$/g, (m) => NBSP.repeat(m.length));
     });
-    // notes/annotations: a {comment:} whose text starts with "*" is a note, not
-    // a section label -> render smaller + italic, drop the leading "*"
+    // notes/annotations: "*..." inside a {comment:}. If it starts the comment
+    // it's a standalone note (small italic block); if it follows a label
+    // ("Chorus x4 *3rd accapella") the note renders INLINE next to the label.
     sheetEl.querySelectorAll(".comment").forEach((c) => {
-      if (/^\s*\*/.test(c.textContent)) {
+      const txt = c.textContent;
+      const star = txt.indexOf("*");
+      if (star === 0) {
         c.classList.add("note");
-        c.textContent = c.textContent.replace(/^\s*\*\s*/, "");
+        c.textContent = txt.replace(/^\s*\*\s*/, "");
+      } else if (star > 0) {
+        const label = txt.slice(0, star).replace(/\s+$/, "");
+        const parts = txt.slice(star).split("*").map((s) => s.trim()).filter(Boolean);
+        c.textContent = label;
+        parts.forEach((n) => {
+          c.appendChild(document.createTextNode(" "));
+          const span = document.createElement("span");
+          span.className = "note-inline";
+          span.textContent = n;
+          c.appendChild(span);
+        });
       }
     });
 
