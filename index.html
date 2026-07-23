@@ -560,12 +560,18 @@
         color: var(--muted);
         cursor: pointer;
         user-select: none;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        border-radius: 999px;
+        padding: 7px 13px;
       }
-      .ed-bpm-row {
-        align-items: center;
+      .qbpm:active {
+        background: var(--accent-soft);
+        color: var(--accent);
       }
-      .ed-bpm-row #ed-bpm {
-        max-width: 150px;
+      .qbpm.tapping {
+        border-color: var(--accent-dim);
+        color: var(--accent);
       }
 
       /* ---------- floating controls (FAB bubble + expanding panel) ---------- */
@@ -1775,7 +1781,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 53</span>
+          &middot; <span id="ver">build 54</span>
         </footer>
       </div>
 
@@ -1808,7 +1814,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
             </button>
           </div>
-          <span class="qbpm hidden" id="qt-bpm"></span>
+          <button type="button" class="qbpm" id="qt-bpm" title="Tap the tempo">🥁 Tap tempo</button>
         </div>
 
         <div class="sheet" id="sheet"></div>
@@ -2006,10 +2012,7 @@
           <input id="ed-lang" placeholder="Language (English)" />
           <label class="ed-check"><input type="checkbox" id="ed-german" /> Slavic notation (H = B)</label>
         </div>
-        <div class="ed-fields ed-bpm-row">
-          <input id="ed-bpm" type="number" inputmode="numeric" min="30" max="300" placeholder="BPM (tempo)" />
-          <button type="button" id="ed-tap" class="ed-mini">🥁 Tap tempo</button>
-        </div>
+        <input id="ed-bpm" type="hidden" />
         <div class="ed-import-row">
           <button type="button" id="ed-format" class="ed-mini">✨ Format pasted text</button>
           <span class="ed-hint">Paste from any site (chords-over-lyrics, ChordPro, or messy copy) then tap Format</span>

@@ -1695,10 +1695,7 @@ const APP_NAME = "New Hope Band";
     // quick-transpose bar (song header)
     $("qt-key").textContent = keyLbl;
     $("qt-reset").classList.toggle("hidden", delta === 0);
-    const bpm = current !== null ? songs[current].bpm : 0;
-    const bpmEl = $("qt-bpm");
-    bpmEl.classList.toggle("hidden", !bpm);
-    if (bpm) bpmEl.textContent = "\u2669 " + bpm + " BPM";
+    updateBpmDisplay(false);
     if (v.key) {
       const offset =
         delta === 0 ? "" : "  (" + (delta > 0 ? "+" + delta : delta) + ")";
@@ -1898,6 +1895,80 @@ const APP_NAME = "New Hope Band";
     delta = 0;
     store.set(trKey(), "0");
     renderSheet();
+  }
+  // ---- tempo / tap-tempo (song header) ----
+  function injectTempo(cp, bpm) {
+    const t = String(cp);
+    if (!bpm) return t.replace(/\{tempo:[^}]*\}\s*\n?/i, "");
+    return /\{tempo:/i.test(t)
+      ? t.replace(/\{tempo:[^}]*\}/i, "{tempo: " + bpm + "}")
+      : "{tempo: " + bpm + "}\n" + t;
+  }
+  function updateBpmDisplay(listening) {
+    const el = $("qt-bpm");
+    if (!el) return;
+    const bpm = current !== null ? songs[current].bpm : 0;
+    el.classList.toggle("tapping", !!listening);
+    el.textContent = bpm
+      ? "♩ " + bpm + " BPM"
+      : listening
+        ? "🥁 tap…"
+        : "🥁 Tap tempo";
+  }
+  let hdrTaps = [],
+    bpmTimer = null;
+  function qtTap() {
+    if (current === null) return;
+    const now = performance.now();
+    if (hdrTaps.length && now - hdrTaps[hdrTaps.length - 1] > 2000) hdrTaps = [];
+    hdrTaps.push(now);
+    if (hdrTaps.length > 8) hdrTaps.shift();
+    if (hdrTaps.length < 2) {
+      updateBpmDisplay(true);
+      return;
+    }
+    let sum = 0;
+    for (let i = 1; i < hdrTaps.length; i++) sum += hdrTaps[i] - hdrTaps[i - 1];
+    const bpm = Math.round(60000 / (sum / (hdrTaps.length - 1)));
+    if (bpm < 30 || bpm > 300) return;
+    songs[current].bpm = bpm; // live: autoscroll uses it immediately
+    updateBpmDisplay(true);
+    // persist a short moment after the last tap (admins/local; else session-only)
+    clearTimeout(bpmTimer);
+    bpmTimer = setTimeout(() => {
+      updateBpmDisplay(false);
+      persistBpm(bpm);
+    }, 1600);
+  }
+  async function persistBpm(bpm) {
+    if (current === null) return;
+    const song = songs[current];
+    const uid = song.uid || "";
+    if (uid.startsWith("g:") && sbOn()) {
+      const row = getGlobalCache().find(
+        (x) => "g:" + (x.num != null ? x.num : x.id) === uid,
+      );
+      if (!row) return;
+      let data = row.data;
+      if (data && typeof data === "object" && data.versions) {
+        data = JSON.parse(JSON.stringify(data));
+        data.versions.forEach((v) => {
+          v.text = injectTempo(v.text || v.chordpro || "", bpm);
+        });
+      } else {
+        data = injectTempo(String(data), bpm);
+      }
+      const res = await sbWrite({ data, src: null }, uid.slice(2));
+      if (res.ok) await refreshGlobal(); // not an admin -> stays session-only, no nag
+    } else if (uid && !uid.startsWith("g:")) {
+      const list = getUserSongs();
+      const s = list.find((x) => x.id === uid);
+      if (s) {
+        s.chordpro = injectTempo(s.chordpro || "", bpm);
+        s.bpm = String(bpm);
+        saveUserSongs(list);
+      }
+    }
   }
   // admin: bake the current transpose into the song as its real key (for everyone)
   async function bakeTranspose() {
@@ -2351,6 +2422,7 @@ const APP_NAME = "New Hope Band";
     $("qt-up").addEventListener("click", () => transpose(1));
     $("qt-down").addEventListener("click", () => transpose(-1));
     $("qt-reset").addEventListener("click", resetTranspose);
+    $("qt-bpm").addEventListener("click", qtTap);
     // chord popover (diagram + admin edit)
     sheetEl.addEventListener("click", (e) => {
       const c = e.target.closest(".chord");
@@ -2395,21 +2467,6 @@ const APP_NAME = "New Hope Band";
     $("ed-format2").addEventListener("click", () =>
       formatEditorField("ed-text2", null, "ed-key2", "ed-german2"),
     );
-    // tap tempo: average the interval of recent taps into a BPM
-    let taps = [];
-    $("ed-tap").addEventListener("click", () => {
-      const now = performance.now();
-      if (taps.length && now - taps[taps.length - 1] > 2000) taps = []; // new count
-      taps.push(now);
-      if (taps.length > 8) taps.shift();
-      if (taps.length >= 2) {
-        let sum = 0;
-        for (let i = 1; i < taps.length; i++) sum += taps[i] - taps[i - 1];
-        const bpm = Math.round(60000 / (sum / (taps.length - 1)));
-        if (bpm >= 30 && bpm <= 300) $("ed-bpm").value = bpm;
-      }
-      $("ed-tap").textContent = "🥁 " + ($("ed-bpm").value || "tap") + (($("ed-bpm").value) ? " BPM" : " tempo");
-    });
     $("ed-biling").addEventListener("change", () =>
       $("ed-block2").classList.toggle("hidden", !$("ed-biling").checked),
     );
