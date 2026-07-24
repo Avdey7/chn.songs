@@ -74,7 +74,7 @@
     const base = SECTION[headerKey(raw)];
     if (!base) return raw;
     let rest = raw, rep = "";
-    const repM = rest.match(/\(?\s*(?:\d+\s*[xх]|[xх]\s*\d+)\s*\)?/i);
+    const repM = rest.match(/\(?\s*(?:\d+[xх]|[xх]\s*\d+)\s*\)?/i);
     if (repM) { rep = normRepeat(repM[0]); rest = rest.replace(repM[0], " "); }
     const numM = rest.match(/\d+/);
     return base + (numM ? " " + numM[0] : "") + (rep ? " " + rep : "");

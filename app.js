@@ -319,7 +319,7 @@ const APP_NAME = "New Hope Band";
     if (!base) return text; // unknown / arbitrary note -> leave as written
     let rest = text;
     let rep = "";
-    const repM = rest.match(/\(?\s*(?:\d+\s*[xх]|[xх]\s*\d+)\s*\)?/i);
+    const repM = rest.match(/\(?\s*(?:\d+[xх]|[xх]\s*\d+)\s*\)?/i);
     if (repM) {
       rep = normRepeat(repM[0]); // 2x / (2x) / х2 -> x2
       rest = rest.replace(repM[0], " ");
@@ -1408,20 +1408,25 @@ const APP_NAME = "New Hope Band";
     lastFilter = filter;
     const q = deaccent(filter.trim().toLowerCase());
 
-    // base list depends on the active tab
+    // base list depends on the active tab. Universal search: a query searches
+    // the whole catalog even from the Set tab; with no query the Set tab shows
+    // just the set (in add-order, reorderable).
+    const setView = listMode === "set" && !q;
     let base;
-    if (listMode === "set") {
+    if (setView) {
       // preserve the order songs were added to the set
       base = getSet()
         .map((t) => songs.find((s) => s.title === t))
         .filter(Boolean);
     } else {
       base = songs;
-      if (favOnly) base = base.filter((s) => favHas(s.title));
-      if (activeTag)
-        base = base.filter((s) =>
-          (s.tags || []).some((t) => t.toLowerCase() === activeTag),
-        );
+      if (listMode === "all") {
+        if (favOnly) base = base.filter((s) => favHas(s.title));
+        if (activeTag)
+          base = base.filter((s) =>
+            (s.tags || []).some((t) => t.toLowerCase() === activeTag),
+          );
+      }
     }
     renderTagBar();
     const matches = q ? base.filter((s) => s.searchText.includes(q)) : base;
@@ -1433,7 +1438,7 @@ const APP_NAME = "New Hope Band";
 
     if (!matches.length) {
       let msg;
-      if (listMode === "set" && !getSet().length) {
+      if (setView && !getSet().length) {
         msg =
           "Your set is empty. Open a song and tap <b>+ Set</b> to add it here.";
       } else if (q) {
@@ -1468,7 +1473,7 @@ const APP_NAME = "New Hope Band";
         k.textContent = s.key;
         li.appendChild(k);
       }
-      if (listMode !== "set") {
+      if (!setView) {
         const fav = document.createElement("button");
         fav.className = "row-fav" + (favHas(s.title) ? " on" : "");
         fav.innerHTML = ICON_STAR;
@@ -1504,7 +1509,7 @@ const APP_NAME = "New Hope Band";
         });
         li.appendChild(add);
       }
-      if (listMode === "set") {
+      if (setView) {
         li.dataset.title = s.title;
         const tools = document.createElement("span");
         tools.className = "row-tools";
@@ -1956,6 +1961,7 @@ const APP_NAME = "New Hope Band";
     if (!el) return;
     const bpm = current !== null ? songs[current].bpm : 0;
     el.classList.toggle("tapping", !!listening);
+    el.classList.toggle("has-bpm", !!bpm);
     el.textContent = bpm
       ? "♩ " + bpm + " BPM"
       : listening

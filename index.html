@@ -553,22 +553,29 @@
       .qreset {
         color: var(--muted);
       }
+      /* BPM control - same pill shell as the transpose group (.qt) so the two
+         read as one unit; the value echoes the key's accent colour. */
       .qbpm {
         font-family: "JetBrains Mono", monospace;
         font-weight: 700;
-        font-size: 0.85rem;
+        font-size: 0.92rem;
         color: var(--muted);
         cursor: pointer;
         user-select: none;
         border: 1px solid var(--border);
         background: var(--surface-2);
         border-radius: 999px;
-        padding: 7px 0;
+        height: 42px;
         /* fixed size so the label swap (Tap tempo / ♩ N BPM) never resizes it */
-        width: 118px;
-        text-align: center;
+        width: 128px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         white-space: nowrap;
         flex: none;
+      }
+      .qbpm.has-bpm {
+        color: var(--accent);
       }
       .qbpm:active {
         background: var(--accent-soft);
@@ -1808,7 +1815,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 56</span>
+          &middot; <span id="ver">build 57</span>
         </footer>
       </div>
 
