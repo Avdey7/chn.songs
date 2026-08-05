@@ -41,6 +41,8 @@
     intro: "Intro", вступ: "Intro", інтро: "Intro",
     verse: "Verse", куплет: "Verse", заспів: "Verse",
     prechorus: "Pre-Chorus", передприспів: "Pre-Chorus",
+    preverse: "Pre-Verse", передкуплет: "Pre-Verse", передзаспів: "Pre-Verse",
+    prebridge: "Pre-Bridge", передбридж: "Pre-Bridge",
     chorus: "Chorus", приспів: "Chorus", припев: "Chorus",
     altchorus: "Alt Chorus", alternatechorus: "Alt Chorus", alternativechorus: "Alt Chorus",
     refrain: "Refrain",
