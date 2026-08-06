@@ -1696,19 +1696,26 @@ const APP_NAME = "New Hope Band";
         t2.textContent = split.b;
         main.appendChild(t2);
       }
+      // Meta line: language badges plus a persistent favourite star. The star
+      // matters because the only other favourite affordances are the desktop
+      // buttons (hidden under 641px) and the swipe shade (which springs away) --
+      // so on a phone a swipe-to-favourite produced NO lasting visible change.
+      const meta = document.createElement("div");
+      meta.className = "row-meta";
       if (s.langAbbrs && s.langAbbrs.length) {
-        // ALWAYS its own meta line. Appending these into the secondary title span
-        // (the old bilingual branch) put "EN \u00B7 UK" inline after the Ukrainian text
-        // while single-language songs got a separate line -- two different looks for
-        // the same piece of metadata, and the badge inherited the title's type.
         const lb = document.createElement("span");
         lb.className = "song-langs";
         lb.textContent = s.langAbbrs.join(" \u00B7 ");
-        const meta = document.createElement("div");
-        meta.className = "row-meta";
         meta.appendChild(lb);
-        main.appendChild(meta);
       }
+      if (favHas(s.title)) {
+        const fm = document.createElement("span");
+        fm.className = "row-fav-mark";
+        fm.textContent = "\u2605";
+        fm.setAttribute("aria-label", "Favourite");
+        meta.appendChild(fm);
+      }
+      if (meta.childNodes.length) main.appendChild(meta);
       content.appendChild(main);
       if (!setView) {
         // reveal layers revealed by swiping the content left/right
@@ -1807,8 +1814,35 @@ const APP_NAME = "New Hope Band";
         };
         const doFav = () => {
           favToggle(s.title);
-          leftBtn.classList.toggle("on", favHas(s.title));
+          const on = favHas(s.title);
+          leftBtn.classList.toggle("on", on);
+          // update THIS row's star now -- the swipe springs back immediately and
+          // without this the only feedback lives on controls a phone never shows
+          const m = li.querySelector(".row-meta");
+          let mark = li.querySelector(".row-fav-mark");
+          if (on && !mark && m) {
+            mark = document.createElement("span");
+            mark.className = "row-fav-mark";
+            mark.textContent = "★";
+            mark.setAttribute("aria-label", "Favourite");
+            m.appendChild(mark);
+          } else if (!on && mark) {
+            mark.remove();
+          }
           renderTagBar();
+          // While the Favourites filter is active, un-favouriting must actually
+          // remove the row -- otherwise the list keeps showing a song that no
+          // longer matches the filter. Deferred past the spring-back so the
+          // rebuild never yanks the row out mid-animation.
+          if (favOnly && !on)
+            setTimeout(() => {
+              // removing the LAST favourite would leave an empty filtered list
+              // staring back at you -- drop the filter and land on All songs
+              if (!songs.some((x) => favHas(x.title))) favOnly = false;
+              renderList();
+              // longer than the spring-back on purpose: the row should be seen
+              // to un-star before it disappears, not vanish under your thumb
+            }, 650);
         };
         rightBtn.addEventListener("click", (e) => {
           e.stopPropagation();

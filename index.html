@@ -586,6 +586,13 @@
         margin-top: 2px;
         min-width: 0;
       }
+      /* persistent favourite star on the row -- the ONLY favourite feedback a
+         phone gets, since .row-fav is desktop-only and the swipe shade springs away */
+      .row-fav-mark {
+        color: var(--fav);
+        font-size: 0.72rem;
+        line-height: 1;
+      }
       .song-langs {
         font-family: "JetBrains Mono", monospace;
         font-weight: 600;
@@ -640,6 +647,13 @@
       .row-shade .row-shade-btn svg {
         width: 22px;
         height: 22px;
+      }
+      /* committed favourite: the star FILLS amber during the hold before the row
+         springs back -- the same read-at-a-glance confirmation the + -> check
+         swap gives on the other side. */
+      .row-shade .row-shade-btn.fav.on svg {
+        fill: var(--fav);
+        stroke: var(--fav);
       }
       /* desktop / wide layouts: the swipe-affordance is invisible to keyboard
          and screen readers, so equivalent actions stay always visible there */
@@ -2254,7 +2268,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 72</span>
+          &middot; <span id="ver">build 75</span>
         </footer>
       </div>
 
