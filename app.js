@@ -95,8 +95,14 @@ const APP_NAME = "New Hope Band";
     if (editBtn) editBtn.classList.toggle("hidden", !inn);
     const si = $("fab-signin");
     if (si) {
+      // Label only -- the signed-in email is deliberately NOT rendered here. It
+      // is noise in a controls panel; the aria-label below still carries the
+      // identity for assistive tech.
       $("fab-signin-label").textContent = inn ? "Sign out" : "Sign in";
-      $("fab-signin-sub").textContent = inn ? store.get("sb_email", "") : "Admin access";
+      $("fab-auth-btn").setAttribute(
+        "aria-label",
+        inn ? "Sign out" : "Sign in as an administrator",
+      );
     }
     // list-header padlock: accented + relabelled while signed in, so the session
     // is visible from the screen the app opens on
@@ -1576,22 +1582,28 @@ const APP_NAME = "New Hope Band";
       if (!engaged) return;
       const t = e.changedTouches[0];
       const dx = t ? t.clientX - sx : 0;
-      const commit = Math.abs(dx) > 44;
-      if (commit) {
-        retireSwipeHint(); // they found it; stop teaching it
-        const dir = dx > 0 ? 1 : -1; // right reveals the left shade, left the right
-        li.classList.add("swiped");
-        content.style.transform = "translateX(" + dir * SHADE + "px)";
-        suppressSwipe = true; // don't turn the row-swipe into a tab-switch
-        li._suppressClick = true;
-        setTimeout(() => {
-          li._suppressClick = false;
-          suppressSwipe = false;
-        }, 300);
-      } else {
-        content.style.transform = "translateX(0)"; // spring back
+      const commit = Math.abs(dx) > 44; // SWIPE ALONE commits - no second tap
+      if (!commit) {
+        content.style.transform = "translateX(0)"; // below threshold: spring back
         li.classList.remove("swiped", "reveal-left", "reveal-right");
+        return;
       }
+      retireSwipeHint(); // they found it; stop teaching it
+      const dir = dx > 0 ? 1 : -1; // right = favourite, left = add/remove from set
+      // commit the action immediately, then show the revealed (now updated)
+      // shade for a beat so the user sees what happened before it springs back
+      suppressSwipe = true; // never let a row swipe become a (now-removed) tab switch
+      li._suppressClick = true; // and never let it open the song
+      li.classList.add("swiped");
+      content.style.transform = "translateX(" + dir * SHADE + "px)";
+      if (dx > 0) actions.fav();
+      else actions.add();
+      setTimeout(() => {
+        content.style.transform = "translateX(0)"; // spring home
+        li.classList.remove("swiped", "reveal-left", "reveal-right");
+        li._suppressClick = false;
+        suppressSwipe = false;
+      }, 260);
     };
     li.addEventListener("touchend", end);
     li.addEventListener("touchcancel", () => {
@@ -1780,31 +1792,39 @@ const APP_NAME = "New Hope Band";
         openSong(s);
       });
       if (!setView) {
-        // swipe reveal: left -> Add to set (right shade), right -> Favourite (left shade)
+        // swipe actions: right = favourite, left = add/remove from set. Fired by
+        // the swipe itself (one step); the shade buttons stay as the visible
+        // feedback layer and a tap fallback for any residual reveal. The desktop
+        // .row-desktop-actions buttons are the real keyboard/screen-reader path.
         const rightBtn = li.querySelector(".row-shade-right .row-shade-btn");
         const leftBtn = li.querySelector(".row-shade-left .row-shade-btn");
-        rightBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
+        const doAdd = () => {
           setToggle(s.title);
           const now = setHas(s.title);
           rightBtn.classList.toggle("in", now);
           rightBtn.innerHTML = now ? ICON_CHECK : ICON_PLUS;
           rightBtn.setAttribute("aria-label", now ? "Remove from set" : "Add to set");
+        };
+        const doFav = () => {
+          favToggle(s.title);
+          leftBtn.classList.toggle("on", favHas(s.title));
+          renderTagBar();
+        };
+        rightBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          doAdd();
           li.classList.remove("swiped", "reveal-left", "reveal-right");
           const rc = li.querySelector(".row-content");
           if (rc) rc.style.transform = "translateX(0)";
-          suppressSwipe = true;
         });
         leftBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          favToggle(s.title);
-          leftBtn.classList.toggle("on", favHas(s.title));
+          doFav();
           li.classList.remove("swiped", "reveal-left", "reveal-right");
           const rc = li.querySelector(".row-content");
           if (rc) rc.style.transform = "translateX(0)";
-          renderTagBar();
         });
-        enableRowSwipe(li, { left: rightBtn, right: leftBtn });
+        enableRowSwipe(li, { fav: doFav, add: doAdd });
       }
       frag.appendChild(li);
     });
@@ -2976,7 +2996,9 @@ const APP_NAME = "New Hope Band";
       if (navigator.share) navigator.share({ url: $("share-link").value }).catch(() => {});
     });
     $("set-import").addEventListener("click", importSetPrompt);
-    // swipe anywhere (while a song is open) to move between songs
+    // swipe anywhere (while a song is open) to move between songs. The list
+    // view has NO horizontal-swipe gesture anymore: switching All <-> Set is
+    // the bottom tabs only, so a list swipe can never fight the row actions.
     let sx = 0,
       sy = 0,
       swiping = false;
@@ -2984,22 +3006,11 @@ const APP_NAME = "New Hope Band";
       swiping = false;
       // never while the editor is open
       if (!$("editor").classList.contains("hidden")) return;
+      if (current === null) return; // list view: no swipe gesture
+      // song view: no song-switching while the controls bubble is open
       const inChrome =
         target && target.closest && target.closest("#fab-wrap, #editor");
-      if (current === null) {
-        // list view: allow a horizontal swipe to switch All <-> Set, but not
-        // when it starts on the tabs/toolbar or a reorder grip
-        if (listView.classList.contains("hidden")) return;
-        if (
-          target &&
-          target.closest &&
-          target.closest(".list-tabs, .set-bar, .tag-bar, .row-drag")
-        )
-          return;
-      } else {
-        // song view: no song-switching while the controls bubble is open
-        if (fabWrap.classList.contains("open") || inChrome) return;
-      }
+      if (fabWrap.classList.contains("open") || inChrome) return;
       sx = x;
       sy = y;
       swiping = true;
@@ -3010,13 +3021,8 @@ const APP_NAME = "New Hope Band";
       const dx = x - sx,
         dy = y - sy;
       if (!(Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3)) return;
-      if (current === null) {
-        if (suppressSwipe) return; // a hold-to-reorder just finished
-        // swipe left -> Set, swipe right -> All songs
-        setListMode(dx < 0 ? "set" : "all");
-      } else {
-        gotoNav(dx < 0 ? 1 : -1);
-      }
+      if (current === null) return; // list view: no tab switch
+      gotoNav(dx < 0 ? 1 : -1);
     }
     // touch (phones) - passive so vertical scrolling is unaffected
     window.addEventListener(

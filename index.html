@@ -900,11 +900,11 @@
         bottom: calc(100% + 10px);
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px; /* tightened from 8px - bubble reads compact */
         width: min(86vw, 320px);
         max-height: 70vh;
         overflow-y: auto;
-        padding: 12px;
+        padding: 10px; /* tightened so the bubble reads compact on a phone */
         background: var(--glass-bg);
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
@@ -925,7 +925,7 @@
       .fab-row {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px; /* tightened from 6px */
       }
       .fab-lbl {
         font-size: 0.64rem;
@@ -1516,8 +1516,12 @@
          purpose: the editor stays a bottom sheet, where a full-height form
          belongs and where the keyboard cannot cover it. */
       #login {
-        place-items: center;
-        padding: 16px;
+        /* Not vertically centred: the iOS/Android keyboard covers roughly the
+           bottom 45% of the screen, and a centred card sat under it. Anchored
+           near the top so the fields and the Log in button stay visible with
+           the keyboard up. */
+        place-items: start center;
+        padding: 8vh 16px 16px;
       }
       #login .editor-card {
         border-radius: 18px; /* all four corners: it no longer meets an edge */
@@ -1681,10 +1685,22 @@
         padding: 12px;
         outline: none;
         white-space: pre;
+        /* Scroll-trap fix: while UNFOCUSED a vertical drag must scroll the
+           editor sheet, not be eaten by the textarea. pan-y permits the
+           VERTICAL gesture (so it reaches the sheet) and withholds the
+           horizontal one, so the field cannot hijack the drag sideways.
+           (pan-x is the opposite and reintroduces the trap.) */
+        touch-action: pan-y;
         /* the textarea scrolls sideways on long chord lines; contain the
            overscroll so a right-to-left select-drag can't trigger the
            browser's back-swipe (which would close the editor + lose edits) */
         overscroll-behavior: contain;
+      }
+      /* once focused (tapped in), restore full touch handling so the textarea
+         edits and horizontally pans its own long chord lines normally */
+      #ed-text:focus,
+      #ed-text2:focus {
+        touch-action: auto;
       }
       .ed-import-row {
         display: flex;
@@ -1795,22 +1811,23 @@
         opacity: 0.55;
         cursor: default;
       }
-      /* FAB auth row: quiet "Sign in" / email + "Sign out" at the panel foot */
+      /* FAB auth row: quiet "Sign in" / "Sign out · email" at the panel foot */
       .fab-auth-row {
         border-top: 1px solid var(--border);
         padding-top: 8px;
-        margin-top: 4px;
+        margin-top: 2px;
       }
       .fab-signin {
         color: var(--muted);
       }
-      .fab-auth-sub {
+      .fab-auth-email {
         font-size: 0.72rem;
         color: var(--muted);
-        opacity: 0.8;
+        opacity: 0.85;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        max-width: 120px;
       }
       .fab-signin:active {
         color: var(--accent);
@@ -2237,7 +2254,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 69</span>
+          &middot; <span id="ver">build 72</span>
         </footer>
       </div>
 
@@ -2262,6 +2279,7 @@
         <div class="keyline" id="keyline"></div>
 
         <div class="quickbar" id="quickbar">
+          <button type="button" class="qbpm" id="qt-bpm" title="Tap the tempo">🥁 Tap tempo</button>
           <div class="qt">
             <button class="qbtn" id="qt-down" aria-label="Transpose down">&minus;</button>
             <span class="qkey" id="qt-key">G</span>
@@ -2270,7 +2288,6 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
             </button>
           </div>
-          <button type="button" class="qbpm" id="qt-bpm" title="Tap the tempo">🥁 Tap tempo</button>
         </div>
 
         <div class="sheet" id="sheet"></div>
@@ -2407,8 +2424,7 @@
                 <rect x="3" y="11" width="18" height="11" rx="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
-              <span class="fab-auth-label" id="fab-signin-label">Sign in</span>
-              <span class="fab-auth-sub" id="fab-signin-sub">Admin access</span>
+              <span id="fab-signin-label">Sign in</span>
             </button>
           </div>
         </div>
