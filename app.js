@@ -83,6 +83,33 @@ const APP_NAME = "New Hope Band";
       : "Not signed in";
     $("ed-login").classList.toggle("hidden", inn);
     $("ed-logout").classList.toggle("hidden", !inn);
+    // admin write controls are hidden from signed-out readers: a guitarist
+    // should never see + / Edit only to discover Save fails. Reflect the
+    // session instantly (called on login, logout, and refresh-session resolve).
+    // ONE source of truth for admin chrome: a class on <html>, which the
+    // pre-paint script in <head> already set from localStorage. CSS keys the +
+    // and the padlock off it, so the first painted frame is correct and nothing
+    // flashes in either direction.
+    document.documentElement.classList.toggle("is-admin", inn);
+    const editBtn = $("edit-btn");
+    if (editBtn) editBtn.classList.toggle("hidden", !inn);
+    const si = $("fab-signin");
+    if (si) {
+      $("fab-signin-label").textContent = inn ? "Sign out" : "Sign in";
+      $("fab-signin-sub").textContent = inn ? store.get("sb_email", "") : "Admin access";
+    }
+    // list-header padlock: accented + relabelled while signed in, so the session
+    // is visible from the screen the app opens on
+    const la = $("list-auth-btn");
+    if (la) {
+      // The open/closed shackle is chosen by CSS off html.is-admin (set before
+      // first paint), so there is nothing to swap here.
+      const lbl = inn
+        ? "Signed in as " + store.get("sb_email", "admin") + " - tap to sign out"
+        : "Sign in to edit songs";
+      la.setAttribute("aria-label", lbl);
+      la.title = lbl;
+    }
   }
   function sbHeaders(extra) {
     return Object.assign(
@@ -154,7 +181,20 @@ const APP_NAME = "New Hope Band";
     }
   }
   // "remember me": use the stored refresh token to get a fresh access token
-  async function refreshSession() {
+  // Supabase ROTATES refresh tokens: each one is single-use. Two overlapping
+  // refreshes (boot restore + an ensureAuth from a save) meant the second sent
+  // an already-spent token, got a 400, and the handler below cleared
+  // sb_refresh -- silently ending a "remember me" session for good. Every
+  // caller now shares one in-flight request.
+  let refreshInFlight = null;
+  function refreshSession() {
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = doRefreshSession().finally(() => {
+      refreshInFlight = null;
+    });
+    return refreshInFlight;
+  }
+  async function doRefreshSession() {
     const rt = store.get("sb_refresh", "");
     if (!rt) return false;
     try {
@@ -180,35 +220,68 @@ const APP_NAME = "New Hope Band";
     if (sbToken() && Date.now() < +store.get("sb_exp", "0")) return true;
     return await refreshSession();
   }
+  // disabled/loading state for the login submit while the request is in flight
+  // (prevents a double submit on a slow network). 44px target preserved.
+  function setLoginBusy(busy) {
+    const btn = $("login-go");
+    if (!btn) return;
+    btn.disabled = busy;
+    btn.textContent = busy ? "Signing in\u2026" : "Log in";
+    $("login-pass").disabled = busy;
+    $("login-email").disabled = busy;
+  }
   // masked login dialog -> resolves true if signed in
   function promptLogin() {
     return new Promise((resolve) => {
       const ov = $("login");
       $("login-email").value = store.get("sb_email", "");
       $("login-pass").value = "";
-      $("login-err").textContent = "";
+      const err = $("login-err");
+      err.hidden = true;
+      err.textContent = "";
+      setLoginBusy(false);
       ov.classList.remove("hidden");
       document.documentElement.classList.add("noscroll");
-      $("login-email").focus();
+      setTimeout(() => $("login-email").focus(), 0); // autofocus email field
       const finish = (ok) => {
+        setLoginBusy(false);
         ov.classList.add("hidden");
         document.documentElement.classList.remove("noscroll");
         $("login-go").removeEventListener("click", go);
         $("login-cancel").removeEventListener("click", cancel);
         ov.removeEventListener("keydown", onKey);
+        const pw = $("login-toggle");
+        if (pw) pw.removeEventListener("click", togglePw);
         resolve(ok);
       };
+      const fail = () => {
+        err.hidden = false;
+        err.textContent =
+          "Sign-in failed. Check your email and password, and that you are online.";
+        setLoginBusy(false);
+      };
       const go = async () => {
+        if ($("login-go").disabled) return; // already in flight - no double submit
+        setLoginBusy(true);
+        err.hidden = true;
         const ok = await adminLogin(
           $("login-email").value.trim(),
           $("login-pass").value,
           $("login-remember").checked,
         );
-        if (!ok) {
-          $("login-err").textContent = "Wrong email or password.";
-          return;
-        }
+        if (!ok) return fail();
+        updateAdminUI(); // reveal admin controls the moment the session lands
         finish(true);
+      };
+      const togglePw = () => {
+        const inp = $("login-pass");
+        const show = inp.type === "password";
+        inp.type = show ? "text" : "password";
+        $("login-toggle").setAttribute("aria-pressed", String(show));
+        $("login-toggle").setAttribute(
+          "aria-label",
+          show ? "Hide password" : "Show password",
+        );
       };
       const cancel = () => finish(false);
       const onKey = (e) => {
@@ -218,6 +291,7 @@ const APP_NAME = "New Hope Band";
       $("login-go").addEventListener("click", go);
       $("login-cancel").addEventListener("click", cancel);
       ov.addEventListener("keydown", onKey);
+      $("login-toggle").addEventListener("click", togglePw);
     });
   }
   // write (insert if no id, else update); returns {ok} or {needLogin}
@@ -918,7 +992,10 @@ const APP_NAME = "New Hope Band";
     renderTabs();
     renderSheet();
     updateSetBtn();
-    $("edit-btn").classList.toggle("hidden", !songs[i].uid);
+    // BOTH conditions: the song must be saved (uid) AND the viewer must be an
+    // admin. This ran after updateAdminUI() and used to re-show Edit to signed-out
+    // readers every time a song was opened, silently undoing the auth gate.
+    $("edit-btn").classList.toggle("hidden", !songs[i].uid || !loggedIn());
     syncNav();
   }
   async function deleteEditor() {
@@ -1406,6 +1483,123 @@ const APP_NAME = "New Hope Band";
     if (current === null) return;
     $("fav-btn").classList.toggle("on", favHas(songs[current].title));
   }
+  // circle-of-fifths hue for a key: C=0, G=30, D=60 ... F=330. Minor keys take
+  // the hue of their RELATIVE MAJOR (Am -> C) so they read as siblings - which
+  // is musically true. Unknown/absent keys return null (neutral tile fallback).
+  const SEMITONE = { "Cb": 11, C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, Fb: 4, "F#": 6, Gb: 6, F: 5, "F#": 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11 };
+  const HUE_BY_SEMITONE = [0, 210, 60, 270, 120, 330, 180, 30, 240, 90, 300, 150];
+  function keyHue(key) {
+    const m = /^([A-Ga-g])([#♯b♭]?)(m|min|minor)?/.exec(String(key || "").trim());
+    if (!m) return null;
+    const letter = m[1].toUpperCase();
+    const acc = { "♯": "#", "♭": "b" }[m[2]] || m[2];
+    const minor = /m/.test(m[3] || "");
+    let st = SEMITONE[letter + acc];
+    if (st === undefined) st = SEMITONE[letter];
+    if (st === undefined) return null;
+    if (minor) st = (st + 3) % 12; // relative major
+    return HUE_BY_SEMITONE[st];
+  }
+  // split a bilingual title "Pri / Sub" into its two display lines, else null
+  function splitTitle(title) {
+    const parts = String(title || "").split(" / ");
+    if (parts.length > 1 && parts[1].trim()) return { a: parts[0].trim(), b: parts[1].trim() };
+    return null;
+  }
+
+  // one-time swipe affordance: shown until the first swipe actually commits,
+  // then retired for good. store() is the localStorage wrapper (try/catch), so a
+  // storage-blocked browser just shows the hint every visit rather than throwing.
+  const SWIPE_HINT_KEY = "swipehintdone";
+  function retireSwipeHint() {
+    if (store.get(SWIPE_HINT_KEY)) return;
+    store.set(SWIPE_HINT_KEY, "1");
+    const el = $("swipe-hint");
+    if (el) el.classList.add("hidden");
+  }
+  function syncSwipeHint(show) {
+    const el = $("swipe-hint");
+    if (!el) return;
+    el.classList.toggle("hidden", !show || !!store.get(SWIPE_HINT_KEY));
+  }
+
+  // reveal-style row swipe: slide the row's content to expose a shade action on
+  // the opposite edge. Only engages on a dominant horizontal drag so vertical
+  // scrolling is never hijacked. Release mid-way springs back; past the
+  // threshold it stays revealed (non-instant commit) until the action is tapped.
+  function enableRowSwipe(li, actions) {
+    const content = li.querySelector(".row-content");
+    li.style.touchAction = "pan-y";
+    const SHADE = 72;
+    let sx = 0,
+      sy = 0,
+      engaged = false;
+    li.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length !== 1) return;
+        if (e.target.closest(".row-shade, .row-desktop-actions")) return;
+        sx = e.touches[0].clientX;
+        sy = e.touches[0].clientY;
+        engaged = false;
+        li.classList.remove("swiping");
+      },
+      { passive: true },
+    );
+    li.addEventListener(
+      "touchmove",
+      (e) => {
+        const t = e.touches[0];
+        if (!t) return;
+        const dx = t.clientX - sx;
+        const dy = t.clientY - sy;
+        if (!engaged) {
+          if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // still a tap
+          if (Math.abs(dx) > Math.abs(dy)) {
+            engaged = true; // horizontal wins
+            li.classList.add("swiping");
+          } else return; // vertical -> let the list scroll
+        }
+        e.preventDefault();
+        let x = Math.max(-SHADE, Math.min(SHADE, dx));
+        content.style.transform = "translateX(" + x + "px)";
+        // Light ONLY the side being uncovered. .row-content is transparent, so a lit
+        // shade on the covered side shows straight through it -- you'd see the star
+        // and the plus at once, on a row swiped one way.
+        li.classList.toggle("reveal-right", x < 0);
+        li.classList.toggle("reveal-left", x > 0);
+      },
+      { passive: false },
+    );
+    const end = (e) => {
+      li.classList.remove("swiping");
+      if (!engaged) return;
+      const t = e.changedTouches[0];
+      const dx = t ? t.clientX - sx : 0;
+      const commit = Math.abs(dx) > 44;
+      if (commit) {
+        retireSwipeHint(); // they found it; stop teaching it
+        const dir = dx > 0 ? 1 : -1; // right reveals the left shade, left the right
+        li.classList.add("swiped");
+        content.style.transform = "translateX(" + dir * SHADE + "px)";
+        suppressSwipe = true; // don't turn the row-swipe into a tab-switch
+        li._suppressClick = true;
+        setTimeout(() => {
+          li._suppressClick = false;
+          suppressSwipe = false;
+        }, 300);
+      } else {
+        content.style.transform = "translateX(0)"; // spring back
+        li.classList.remove("swiped", "reveal-left", "reveal-right");
+      }
+    };
+    li.addEventListener("touchend", end);
+    li.addEventListener("touchcancel", () => {
+      content.style.transform = "translateX(0)";
+      li.classList.remove("swiped", "reveal-left", "reveal-right");
+    });
+  }
+
   function renderList(filter = lastFilter) {
     lastFilter = filter;
     const q = deaccent(filter.trim().toLowerCase());
@@ -1434,9 +1628,12 @@ const APP_NAME = "New Hope Band";
     const matches = q ? base.filter((s) => s.searchText.includes(q)) : base;
     currentMatches = matches; // swipe/next-prev follows the current view
 
+
     listEl.innerHTML = "";
     countEl.textContent =
       matches.length + (matches.length === 1 ? " song" : " songs");
+    // only where the gesture exists: All view (Set rows use remove/drag instead)
+    syncSwipeHint(!setView && matches.length > 0);
 
     if (!matches.length) {
       let msg;
@@ -1455,61 +1652,100 @@ const APP_NAME = "New Hope Band";
     const frag = document.createDocumentFragment();
     matches.forEach((s) => {
       const li = document.createElement("li");
-      // title with a quiet language hint right beneath it
+      // key letter tile as the row's visual anchor (circle-of-fifths hue)
+      const content = document.createElement("div");
+      content.className = "row-content";
+      const tile = document.createElement("span");
+      tile.className = "row-key-tile";
+      const hue = s.key ? keyHue(s.key) : null;
+      if (hue !== null) {
+        tile.style.setProperty("--tile-hue", hue + "deg");
+        tile.textContent = s.key;
+      } else {
+        tile.classList.add("neutral"); // unknown/absent key -> quiet grey tile
+        tile.textContent = (s.key || "·").slice(0, 3);
+      }
+      content.appendChild(tile);
+      // title split into primary + secondary (bilingual) lines
       const main = document.createElement("div");
       main.className = "row-main";
+      const split = splitTitle(s.title);
       const t = document.createElement("span");
-      t.className = "song-title";
-      t.textContent = s.title;
+      t.className = "song-title song-primary";
+      t.textContent = split ? split.a : s.title;
       main.appendChild(t);
+      // declared in the OUTER scope: the language-abbr block below appends to t2
+      // when a secondary line exists, and a block-scoped const here threw
+      // ReferenceError on every row, silently emptying the whole list.
+      let t2 = null;
+      if (split) {
+        t2 = document.createElement("span");
+        t2.className = "song-title song-secondary";
+        t2.textContent = split.b;
+        main.appendChild(t2);
+      }
       if (s.langAbbrs && s.langAbbrs.length) {
+        // ALWAYS its own meta line. Appending these into the secondary title span
+        // (the old bilingual branch) put "EN \u00B7 UK" inline after the Ukrainian text
+        // while single-language songs got a separate line -- two different looks for
+        // the same piece of metadata, and the badge inherited the title's type.
         const lb = document.createElement("span");
         lb.className = "song-langs";
         lb.textContent = s.langAbbrs.join(" \u00B7 ");
-        main.appendChild(lb);
+        const meta = document.createElement("div");
+        meta.className = "row-meta";
+        meta.appendChild(lb);
+        main.appendChild(meta);
       }
-      li.appendChild(main);
-      if (s.key) {
-        const k = document.createElement("span");
-        k.className = "song-key";
-        k.textContent = s.key;
-        li.appendChild(k);
-      }
+      content.appendChild(main);
       if (!setView) {
+        // reveal layers revealed by swiping the content left/right
+        const shadeL = document.createElement("div");
+        shadeL.className = "row-shade row-shade-left";
+        const ab = document.createElement("button");
+        ab.className = "row-shade-btn fav";
+        ab.innerHTML = ICON_STAR;
+        ab.setAttribute("aria-label", "Favorite");
+        shadeL.appendChild(ab);
+        const shadeR = document.createElement("div");
+        shadeR.className = "row-shade row-shade-right";
+        const ab2 = document.createElement("button");
+        ab2.className = "row-shade-btn add";
+        ab2.innerHTML = setHas(s.title) ? ICON_CHECK : ICON_PLUS;
+        ab2.setAttribute("aria-label", setHas(s.title) ? "Remove from set" : "Add to set");
+        shadeR.appendChild(ab2);
+        li.appendChild(shadeL);
+        li.appendChild(shadeR);
+        // desktop/wide-layout fallback: identical actions always visible, so
+        // the features are reachable without any gesture (a11y requirement)
+        const dActions = document.createElement("div");
+        dActions.className = "row-desktop-actions";
         const fav = document.createElement("button");
         fav.className = "row-fav" + (favHas(s.title) ? " on" : "");
         fav.innerHTML = ICON_STAR;
         fav.setAttribute("aria-label", "Favorite");
-        fav.addEventListener("pointerdown", (e) => e.preventDefault());
         fav.addEventListener("click", (e) => {
           e.stopPropagation();
           favToggle(s.title);
           fav.classList.toggle("on", favHas(s.title));
           renderTagBar();
         });
-        li.appendChild(fav);
+        dActions.appendChild(fav);
         const add = document.createElement("button");
         const inSet = setHas(s.title);
         add.className = "row-add" + (inSet ? " in" : "");
         add.innerHTML = inSet ? ICON_CHECK : ICON_PLUS;
-        add.setAttribute(
-          "aria-label",
-          inSet ? "Remove from set" : "Add to set",
-        );
-        // don't steal focus from the search box (keeps the keyboard open)
-        add.addEventListener("pointerdown", (e) => e.preventDefault());
+        add.setAttribute("aria-label", inSet ? "Remove from set" : "Add to set");
         add.addEventListener("click", (e) => {
           e.stopPropagation();
           setToggle(s.title);
           const now = setHas(s.title);
           add.classList.toggle("in", now);
           add.innerHTML = now ? ICON_CHECK : ICON_PLUS;
-          add.setAttribute(
-            "aria-label",
-            now ? "Remove from set" : "Add to set",
-          );
+          add.setAttribute("aria-label", now ? "Remove from set" : "Add to set");
         });
-        li.appendChild(add);
+        dActions.appendChild(add);
+        content.appendChild(dActions);
       }
       if (setView) {
         li.dataset.title = s.title;
@@ -1536,12 +1772,40 @@ const APP_NAME = "New Hope Band";
           enableHoldDrag(li);
           tools.appendChild(drag);
         }
-        li.appendChild(tools);
+        content.appendChild(tools);
       }
+      li.appendChild(content);
       li.addEventListener("click", () => {
-        if (li._suppressClick) return; // just finished a hold-to-reorder
+        if (li._suppressClick) return; // just finished a hold-to-reorder/swipe
         openSong(s);
       });
+      if (!setView) {
+        // swipe reveal: left -> Add to set (right shade), right -> Favourite (left shade)
+        const rightBtn = li.querySelector(".row-shade-right .row-shade-btn");
+        const leftBtn = li.querySelector(".row-shade-left .row-shade-btn");
+        rightBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setToggle(s.title);
+          const now = setHas(s.title);
+          rightBtn.classList.toggle("in", now);
+          rightBtn.innerHTML = now ? ICON_CHECK : ICON_PLUS;
+          rightBtn.setAttribute("aria-label", now ? "Remove from set" : "Add to set");
+          li.classList.remove("swiped", "reveal-left", "reveal-right");
+          const rc = li.querySelector(".row-content");
+          if (rc) rc.style.transform = "translateX(0)";
+          suppressSwipe = true;
+        });
+        leftBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          favToggle(s.title);
+          leftBtn.classList.toggle("on", favHas(s.title));
+          li.classList.remove("swiped", "reveal-left", "reveal-right");
+          const rc = li.querySelector(".row-content");
+          if (rc) rc.style.transform = "translateX(0)";
+          renderTagBar();
+        });
+        enableRowSwipe(li, { left: rightBtn, right: leftBtn });
+      }
       frag.appendChild(li);
     });
     listEl.appendChild(frag);
@@ -1587,6 +1851,7 @@ const APP_NAME = "New Hope Band";
         bar.appendChild(b);
       });
   }
+
 
   let listInited = false;
   function setListMode(mode) {
@@ -1679,7 +1944,30 @@ const APP_NAME = "New Hope Band";
   }
 
   function renderSheet() {
-    const v = songs[current].versions[vi];
+    // h1 shows ONLY the active-language version's title (the #lang-tabs already
+    // carry the other languages), clamped to one line - never both joined, so
+    // the header height is uniform across single and bilingual songs.
+    const cs = songs[current];
+    const cv = cs.versions[vi];
+    // Per-version titles do not exist in the data (a bilingual song stores ONE
+    // "English / Ukrainian" string), so the version-title branch always fell back
+    // to the joined form and the one-line clamp just ellipsised it -- showing
+    // neither title in full. Split the stored title on " / " and take the half
+    // matching the active version, exactly as the list rows already do.
+    const halves = cs.versions.length > 1 ? splitTitle(cs.title) : null;
+    const vTitle = cv && cv.title ? String(cv.title).trim() : "";
+    // A version title that merely REPEATS the combined string is not a per-version
+    // title -- both versions' ChordPro carry the same {title:}, which is why the
+    // naive "use cv.title" check always produced the joined form.
+    const distinct = vTitle && vTitle !== String(cs.title || "").trim();
+    titleEl.textContent = distinct
+      ? vTitle
+      : halves
+        ? vi === 0
+          ? halves.a
+          : halves.b
+        : cs.title;
+    const v = cs.versions[vi];
     let song = ensureParsed(v);
     if (delta !== 0 && song) {
       try {
@@ -1748,7 +2036,18 @@ const APP_NAME = "New Hope Band";
     keyNowEl.textContent = keyLbl;
     // quick-transpose bar (song header)
     $("qt-key").textContent = keyLbl;
-    $("qt-reset").classList.toggle("hidden", delta === 0);
+    // the whole transpose state lives in the pill: the reset control becomes a
+    // +/- badge when transposed, and its tooltip/a11y label carry the original
+    // key so it is never lost. Fixed 44x44 (a .qbtn) = constant height.
+    const resetBtn = $("qt-reset");
+    const transposed = delta !== 0;
+    resetBtn.classList.toggle("hidden", !transposed);
+    if (transposed) {
+      resetBtn.innerHTML = (delta > 0 ? "+" : "") + delta;
+      const orig = v && v.key ? " (" + v.key + ")" : "";
+      resetBtn.setAttribute("aria-label", "Reset to original key" + orig);
+      resetBtn.title = "Reset to original key" + orig;
+    }
     updateBpmDisplay(false);
     if (v.key) {
       const offset =
@@ -1760,11 +2059,15 @@ const APP_NAME = "New Hope Band";
         (now && now !== v.key
           ? " &nbsp;&middot;&nbsp; now <b>" + escapeHtml(now) + "</b>" + offset
           : "");
+      // the keyline is removed from layout (display:none); this flag toggle is
+      // inert but kept so the element never leaks back into flow by accident.
+      keylineEl.classList.toggle("hidden", delta === 0);
     } else {
       keylineEl.innerHTML =
         delta === 0
           ? "No key set"
           : "Transposed " + (delta > 0 ? "+" + delta : delta) + " semitone(s)";
+      keylineEl.classList.remove("hidden");
     }
     // show "save key" only when transposed on a saved (DB) song
     $("key-save").classList.toggle(
@@ -1862,7 +2165,10 @@ const APP_NAME = "New Hope Band";
     renderSheet();
     updateSetBtn();
     updateFavBtn();
-    $("edit-btn").classList.toggle("hidden", !songs[i].uid);
+    // BOTH conditions: the song must be saved (uid) AND the viewer must be an
+    // admin. This ran after updateAdminUI() and used to re-show Edit to signed-out
+    // readers every time a song was opened, silently undoing the auth gate.
+    $("edit-btn").classList.toggle("hidden", !songs[i].uid || !loggedIn());
     listView.classList.add("hidden");
     songView.classList.remove("hidden");
     fabWrap.classList.remove("hidden");
@@ -2341,8 +2647,9 @@ const APP_NAME = "New Hope Band";
     // tell the browser the page is this scheme so phone "force dark" doesn't
     // override our light theme
     document.documentElement.style.colorScheme = t === "light" ? "light" : "dark";
-    // show the icon for what you'll switch TO
-    $("theme-btn").innerHTML = t === "light" ? ICON_MOON : ICON_SUN;
+    // The icon for "what you'll switch TO" is chosen by CSS off data-theme (set
+    // before first paint). Swapping innerHTML here painted the markup's glyph
+    // first and replaced it a frame later -- that was the theme-button flash.
     document
       .querySelector('meta[name="theme-color"]')
       .setAttribute("content", t === "light" ? "#f4efe5" : "#0d0e12");
@@ -2421,6 +2728,7 @@ const APP_NAME = "New Hope Band";
     $("brand").textContent = APP_NAME;
     build();
     initSets();
+    updateAdminUI(); // reflect session on first paint (hides + / Edit for readers)
     const imported = checkHashImport();
     // restore the tab you were on (All/Set); a shared link forces the Set tab
     setListMode(imported ? "set" : store.get("listmode", "all"));
@@ -2548,6 +2856,23 @@ const APP_NAME = "New Hope Band";
     $("stage-btn").addEventListener("click", () => {
       document.documentElement.classList.toggle("stage");
       closeControls();
+    });
+    $("fab-auth-btn").addEventListener("click", async () => {
+      closeControls();
+      if (loggedIn()) {
+        logoutAdmin();
+      } else {
+        await promptLogin();
+      }
+    });
+    // the same door from the LIST header -- an admin lands on the list, not on a
+    // song, and should not have to open one just to sign in
+    $("list-auth-btn").addEventListener("click", async () => {
+      if (loggedIn()) {
+        logoutAdmin();
+      } else {
+        await promptLogin();
+      }
     });
     $("fav-btn").addEventListener("click", () => {
       if (current === null) return;
