@@ -783,15 +783,21 @@ const APP_NAME = "New Hope Band";
         if (cm) chords.push({ pos: lyric.length, sym: cm[1] });
         else lyric += p;
       }
-      let row = "";
+      let chordRow = "", lyricRow = "", prev = 0;
       for (const c of chords) {
-        let target = c.pos;
-        if (row.length > 0 && target <= row.length) target = row.length + 1;
-        if (target > row.length) row += " ".repeat(target - row.length);
-        row += c.sym;
+        lyricRow += lyric.slice(prev, c.pos);
+        prev = c.pos;
+        const minChordCol = chordRow.length ? chordRow.length + 1 : 0; // keep >=1 space between chords
+        let col = Math.max(lyricRow.length, minChordCol);
+        // ONLY stretch the lyric at a WORD BOUNDARY - never split a word
+        const atWordStart = c.pos === 0 || /\s/.test(lyric[c.pos - 1] || "");
+        if (col > lyricRow.length && atWordStart) lyricRow += " ".repeat(col - lyricRow.length);
+        if (col > chordRow.length) chordRow += " ".repeat(col - chordRow.length);
+        chordRow += c.sym;
       }
-      out.push(row.replace(/\s+$/, ""));
-      if (lyric.trim() !== "") out.push(lyric.replace(/\s+$/, ""));
+      lyricRow += lyric.slice(prev);
+      out.push(chordRow.replace(/\s+$/, ""));
+      if (lyric.trim() !== "") out.push(lyricRow.replace(/\s+$/, ""));
     }
     return {
       name,

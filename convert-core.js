@@ -115,7 +115,9 @@
       if (col > out.length) { out = out.padEnd(col, " "); }
       out = out.slice(0, col) + "[" + c.sym + "]" + out.slice(col);
     }
-    return out;
+    // alignment padding was written back into the lyric as inter-word spaces;
+    // collapse a run of 2+ spaces right before a chord bracket back to one
+    return out.replace(/ {2,}(\[)/g, " $1");
   }
 
   // ---- chord-only line (intro, turnaround) -> bracket the chords, keep bars ----
