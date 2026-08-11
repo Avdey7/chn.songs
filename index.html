@@ -505,6 +505,19 @@
         padding: 0 2px;
         overflow: hidden;
       }
+      /* running-order position number: leads the row, quiet mono, subordinate
+         to the title but instantly scannable. Fixed width so 1->10 doesn't
+         shift the key tile to its right; aligned to the tile's baseline. */
+      .row-pos {
+        flex: none;
+        width: 22px;
+        text-align: center;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 600;
+        font-size: 0.82rem;
+        color: var(--muted);
+        opacity: 0.9;
+      }
       .row-key-tile.neutral {
         background: var(--surface-2);
         color: var(--muted);
@@ -575,6 +588,15 @@
       @media (min-width: 641px) {
         .swipe-hint {
           display: none; /* desktop has the real buttons */
+        }
+      }
+      /* Set rows: the drag GRIP is redundant on touch -- enableHoldDrag() already
+         reorders by press-and-hold anywhere on the row -- and it was costing the
+         title ~48px, truncating "Blessed Assurance" to "Blessed...". Mouse users
+         keep the visible grip at >=641px where press-and-hold is not a gesture. */
+      @media (max-width: 640px) {
+        ul.list li .row-drag {
+          display: none;
         }
       }
       /* metadata line under the title. ALWAYS present when a song declares
@@ -2298,7 +2320,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 77</span>
+          &middot; <span id="ver">build 78</span>
         </footer>
       </div>
 

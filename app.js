@@ -1337,8 +1337,18 @@ const APP_NAME = "New Hope Band";
           .map((el) => el.dataset.title)
           .filter(Boolean);
         saveSet(order);
+        renumberSetRows(); // DOM order changed -> refresh the running-order numbers
       },
     };
+  }
+  // renumber the running-order position numbers from current DOM order (only
+  // present in Set view). Called after a drag-reorder; remove re-renders list.
+  function renumberSetRows() {
+    const rows = listEl.querySelectorAll(".row-pos");
+    rows.forEach((el, i) => {
+      el.textContent = i + 1;
+      el.setAttribute("aria-label", "Position " + (i + 1) + " in the set");
+    });
   }
   // grip handle drag (mouse + touch on the handle itself).
   // We listen on `window`, NOT the handle, and skip setPointerCapture: the drag
@@ -1648,8 +1658,9 @@ const APP_NAME = "New Hope Band";
 
 
     listEl.innerHTML = "";
-    countEl.textContent =
-      matches.length + (matches.length === 1 ? " song" : " songs");
+    countEl.textContent = setView
+      ? matches.length + (matches.length === 1 ? " song in this set" : " songs in this set")
+      : matches.length + (matches.length === 1 ? " song" : " songs");
     // only where the gesture exists: All view (Set rows use remove/drag instead)
     syncSwipeHint(!setView && matches.length > 0);
 
@@ -1668,7 +1679,7 @@ const APP_NAME = "New Hope Band";
     }
 
     const frag = document.createDocumentFragment();
-    matches.forEach((s) => {
+    matches.forEach((s, idx) => {
       const li = document.createElement("li");
       // key letter tile as the row's visual anchor (circle-of-fifths hue)
       const content = document.createElement("div");
@@ -1774,6 +1785,14 @@ const APP_NAME = "New Hope Band";
       }
       if (setView) {
         li.dataset.title = s.title;
+        // 1-based position in the running order, leading the row (read as an
+        // ordinal, not data). Quiet mono, subordinate to the title. Renumbered
+        // on remove (re-render) and after a drag (see renumberSetRows).
+        const pos = document.createElement("span");
+        pos.className = "row-pos";
+        pos.textContent = idx + 1;
+        pos.setAttribute("aria-label", "Position " + (idx + 1) + " in the set");
+        content.insertBefore(pos, content.firstChild);
         const tools = document.createElement("span");
         tools.className = "row-tools";
         const rm = document.createElement("button");
