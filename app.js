@@ -1975,6 +1975,17 @@ const APP_NAME = "New Hope Band";
     }
     bar.classList.remove("hidden");
     bar.innerHTML = "";
+    // "All": always first, the clear-any-filter control. Highlighted (and the
+    // only highlighted chip) precisely when nothing else is selected.
+    const ab = document.createElement("button");
+    ab.className = "chip" + (!activeTag && !favOnly ? " active" : "");
+    ab.textContent = "All";
+    ab.addEventListener("click", () => {
+      activeTag = "";
+      favOnly = false;
+      renderList();
+    });
+    bar.appendChild(ab);
     if (hasFavs) {
       const fb = document.createElement("button");
       fb.className = "chip" + (favOnly ? " active" : "");
