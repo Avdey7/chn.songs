@@ -183,8 +183,15 @@
     }
     return out.join("\n");
   }
-  const isChordProText = (t) =>
-    /\[[A-H][^\]]{0,12}\]/.test(t) || /\{\s*(title|t|key|k|c|comment|start_of|end_of)\b/i.test(t);
+  const isChordProText = (t) => {
+    const s = String(t);
+    if (/\{\s*(title|t|key|k|c|comment|start_of|end_of)\b/i.test(s)) return true;
+    // A bracket holding a SECTION LABEL ([Chorus], [Bridge], [Verse 1]) is NOT a
+    // chord: those appear in ordinary chords-over-lyrics paste and must still go
+    // through convert(). buildChordPro already applies this same rule.
+    const brackets = s.match(/\[[^\]\n]{1,14}\]/g) || [];
+    return brackets.some((b) => /^\[[A-H]/.test(b) && !isHeader(b));
+  };
 
   // a line that is ONLY chords/decorations with exactly one real chord token
   function isSingleChordLine(line) {
