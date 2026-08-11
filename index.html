@@ -1020,7 +1020,7 @@
       .sheet .chord-sheet {
       }
       .sheet .paragraph {
-        margin: 0 0 1.5em;
+        margin: 0 0 0.75em; /* ~half the old 1.5em gap - buy back scrolling without merging sections */
       }
       /* Chorus: tinted accent card so it stands out at a glance */
       .sheet .paragraph.chorus {
@@ -1050,7 +1050,10 @@
         font-family: "JetBrains Mono", monospace;
         font-weight: 700;
         color: var(--accent);
-        font-size: 0.8em;
+        /* chords read at arm's length on a stand, so they're LARGER than the
+           lyrics they govern (1.05x, relative to the sheet size - never fixed
+           px, so #size and stage mode scale them with the same ratio). */
+        font-size: 1.05em;
         line-height: 1.1;
         min-height: 1.2em;
         white-space: pre;
@@ -1066,18 +1069,24 @@
         min-height: 1.45em; /* empty lyric still reserves a line so a trailing
                                chord stays ABOVE the text, not inline with it */
       }
-      /* Section labels ({comment: Verse 1}, Bridge, x2 …) */
+      /* Section labels ({comment: Verse 1}, Bridge, x2 …) - the navigation
+         anchors when someone is lost mid-service, so they outrank the chords:
+         larger type plus a quiet hairline rule above. No background/radius so
+         it can't read as a button, and it doesn't compete with the chorus
+         tint band (that is a fill; this is a line). */
       .sheet .comment {
         font-family: "JetBrains Mono", monospace;
-        font-size: 0.92em;
+        font-size: 1.15em;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.1em;
         color: var(--accent);
-        margin: 0.2em 0 0.5em;
+        margin: 0.6em 0 0.5em; /* top margin swallowed here; hairline carries it */
         scroll-margin-top: 150px; /* land below the sticky control panel */
+        border-top: 1px solid var(--border);
+        padding-top: 0.5em;
       }
-      /* a standalone note/annotation ("*..." line): quieter, smaller, italic */
+      /* standalone note/annotation ("*..." line): stays small/quiet - no rule */
       .sheet .comment.note {
         font-family: "Inter", sans-serif;
         font-size: 0.82em;
@@ -1087,6 +1096,8 @@
         letter-spacing: 0;
         color: var(--muted);
         margin: 0 0 0.35em;
+        border-top: none;
+        padding-top: 0;
       }
       /* an inline note next to a section label (Chorus x4 · softly) */
       .sheet .comment .note-inline {
@@ -2268,7 +2279,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 75</span>
+          &middot; <span id="ver">build 76</span>
         </footer>
       </div>
 
