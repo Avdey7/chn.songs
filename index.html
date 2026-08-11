@@ -93,6 +93,7 @@
         --r-pill: 999px; /* fully round: buttons, chips, pills */
         --r-md: 12px; /* rounded rect: inputs, textareas, cards */
         --fav: #f5b301; /* favourited amber -- ONE source for every star */
+        --danger: #e2607a; /* destructive error red -- ONE source (Delete, login errors) */
         --maxw: 760px;
         --t-fast: 0.12s;
         --t-med: 0.2s;
@@ -106,7 +107,7 @@
         --surface-2: #f1eadd;
         --border: #e6ddcd;
         --text: #2a2620;
-        --muted: #7c7264;
+        --muted: #736959;
         --accent: #4f46e5; /* chords: indigo */
         --accent-dim: #4338ca;
         --accent-soft: rgba(79, 70, 229, 0.08);
@@ -118,6 +119,7 @@
         --key-lig: 85%;
         --key-fg: #332d4a;
         --key-edge: rgba(0, 0, 0, 0.07);
+        --danger: #b3243f;
       }
 
       * {
@@ -1677,9 +1679,10 @@
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--text);
-        width: 32px;
-        height: 32px;
-        border-radius: var(--r-md);
+        width: 44px;
+        height: 44px;
+        border-radius: var(--r-pill);
+        font-size: 1.1rem;
         cursor: pointer;
         display: grid;
         place-items: center;
@@ -1713,6 +1716,7 @@
       .editor input:not([type="checkbox"]) {
         flex: 1;
         min-width: 90px;
+        min-height: var(--ctl-h);
         font-family: inherit;
         font-size: 1rem;
         color: var(--text);
@@ -1728,6 +1732,7 @@
         gap: 8px;
         font-size: 0.9rem;
         color: var(--muted);
+        min-height: var(--ctl-h);
       }
       .ed-check input {
         width: 18px;
@@ -1804,10 +1809,10 @@
       }
       .ed-hint {
         color: var(--muted);
-        font-size: 0.78rem;
+        font-size: 13.6px;
         line-height: 1.25;
-        flex: 1;
-        min-width: 140px;
+        flex: 1 1 100%;
+        margin-left: 0;
       }
       .ed-actions {
         display: flex;
@@ -1832,13 +1837,16 @@
         color: var(--text);
         border: 1px solid var(--border);
       }
-      .ed-hint {
-        color: var(--muted);
-        font-size: 0.78rem;
-        margin-left: auto;
+      /* destructive action in the sticky editor header: transparent, danger red,
+         and held 12px off the primary Save so a thumb aimed at Save can't land here. */
+      #ed-delete {
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+        margin-left: 12px;
       }
       .login-err {
-        color: #e2607a;
+        color: var(--danger);
         font-size: 0.82rem;
         min-height: 1em;
       }
@@ -2331,7 +2339,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 80</span>
+          &middot; <span id="ver">build 81</span>
         </footer>
       </div>
 
