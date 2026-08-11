@@ -83,7 +83,6 @@
         --glass-bg: color-mix(in srgb, var(--surface) 68%, transparent);
         --glass-border: color-mix(in srgb, var(--text) 12%, transparent);
         --glass-blur: saturate(160%) blur(16px);
-        --radius: 14px;
         /* ---- control system -------------------------------------------------
            One scale for every interactive control, so a new button cannot invent
            a fourth "rounded" or a ninth text size. An audit found 6 radii,
@@ -92,6 +91,11 @@
         --ctl-h-lg: 46px; /* pill shells: 44px inner control + 1px border = 46px outer */
         --r-pill: 999px; /* fully round: buttons, chips, pills */
         --r-md: 12px; /* rounded rect: inputs, textareas, cards */
+        --r-lg: 18px; /* large corners: bottom sheets, dialogs */
+        /* elevation scale - by blur radius, measured from the surfaces that use them */
+        --elev-1: 0 6px 18px rgba(0, 0, 0, 0.32); /* raised: FAB at rest, small floating controls */
+        --elev-2: 0 10px 26px rgba(0, 0, 0, 0.35); /* floating: popovers, toasts */
+        --elev-3: 0 14px 36px rgba(0, 0, 0, 0.4); /* overlay: bottom sheets, modals */
         --fav: #f5b301; /* favourited amber -- ONE source for every star */
         --danger: #e2607a; /* destructive error red -- ONE source (Delete, login errors) */
         --maxw: 760px;
@@ -182,7 +186,7 @@
       }
       .list-anim-next,
       .list-anim-prev {
-        animation: tabIn 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+        animation: tabIn var(--t-med) var(--ease);
       }
       @media (prefers-reduced-motion: reduce) {
         *,
@@ -320,15 +324,15 @@
         color: var(--text);
         width: 44px;
         height: 44px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         font-size: 1.1rem;
         cursor: pointer;
         display: grid;
         place-items: center;
         line-height: 0;
         transition:
-          transform 0.08s ease,
-          background 0.15s ease;
+          transform var(--t-fast) var(--ease),
+          background var(--t-fast) var(--ease);
       }
       .iconbtn:active {
         transform: scale(0.92);
@@ -351,7 +355,7 @@
         color: var(--text);
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         outline: none;
       }
       /* hide the native clear control; we render our own always-visible one */
@@ -371,7 +375,7 @@
         border: none;
         background: var(--surface-2);
         color: var(--muted);
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         font-size: 1.1rem;
         line-height: 1;
         cursor: pointer;
@@ -425,7 +429,7 @@
         border-bottom: 1px solid var(--border);
         border-radius: var(--r-md);
         cursor: pointer;
-        transition: background 0.12s ease;
+        transition: background var(--t-fast) var(--ease);
         scroll-margin-top: 70px; /* keep scrolled-to rows clear of the sticky header */
         /* the swipe-reveal shade layers are absolutely positioned to the row and
            must be clipped by it -- without these two the shades bleed across the
@@ -433,9 +437,10 @@
         position: relative;
         overflow: hidden;
       }
-      /* brief highlight on the last-opened song when resuming to the list */
+      /* brief highlight on the last-opened song when resuming to the list.
+         2.4s is an intentional long "here is your song" beat outside the --t-* scale. */
       ul.list li.just-open {
-        animation: rowResume 2.4s ease;
+        animation: rowResume 2.4s var(--ease);
       }
       @keyframes rowResume {
         0%,
@@ -484,7 +489,7 @@
         width: 100%;
         min-width: 0;
         will-change: transform;
-        transition: transform 0.18s ease;
+        transition: transform var(--t-med) var(--ease);
       }
       ul.list li.swiping .row-content {
         transition: none; /* follow the finger without lag while dragging */
@@ -535,7 +540,7 @@
       .song-title {
         font-family: "Inter", sans-serif;
         font-weight: 600;
-        font-size: 1.04rem;
+        font-size: 1.05rem;
         line-height: 1.3;
         letter-spacing: -0.01em;
         text-transform: capitalize; /* title-case display; stored title unchanged */
@@ -566,7 +571,7 @@
         display: flex;
         align-items: center;
         gap: 6px;
-        animation: hint-in 0.5s ease both;
+        animation: hint-in 0.5s var(--ease) both; /* 0.5s intentional slow one-time hint, outside the --t-* scale */
       }
       .swipe-hint::before {
         content: "⇄";
@@ -635,7 +640,7 @@
         display: grid;
         place-items: center;
         opacity: 0;
-        transition: opacity 0.18s ease;
+        transition: opacity var(--t-med) var(--ease);
       }
       /* The reveal trigger -- without it the shades stay opacity:0 and a swipe drags
          the row aside to show nothing. Gated per SIDE: .row-content is transparent,
@@ -706,11 +711,11 @@
         font-weight: 600;
         font-size: 0.9rem;
         padding: 7px 16px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         color: var(--muted);
         background: var(--surface);
         border: 1px solid var(--border);
-        transition: all 0.15s ease;
+        transition: all var(--t-fast) var(--ease);
       }
       .lang-tab:active {
         transform: scale(0.96);
@@ -749,7 +754,7 @@
         gap: 6px;
         height: 44px;
         padding: 0 18px 0 13px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: 1px solid var(--border);
         background: var(--surface);
         color: var(--text);
@@ -771,7 +776,7 @@
       }
       .song-view h1 {
         font-family: "Inter", sans-serif;
-        font-weight: 800;
+        font-weight: 700;
         /* uniform height for every song: the active-language title only, on
            one line, so a short title and a bilingual one are byte-identical
            from the top of the screen to the first lyric. */
@@ -821,7 +826,7 @@
         width: 44px;
         height: 44px;
         border: none;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         background: transparent;
         color: var(--text);
         font-size: 1.1rem;
@@ -844,7 +849,7 @@
         font-family: "JetBrains Mono", monospace;
         font-weight: 700;
         color: var(--accent);
-        font-size: 0.98rem;
+        font-size: 1rem;
       }
       .qreset {
         color: var(--accent);
@@ -908,7 +913,7 @@
         border: none;
         background: var(--accent-grad);
         color: var(--on-accent);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+        box-shadow: var(--elev-1);
         cursor: pointer;
         display: grid;
         place-items: center;
@@ -927,7 +932,7 @@
         inset: 0;
         display: grid;
         place-items: center;
-        font-size: 1.8rem;
+        font-size: 1.8rem; /* intentional glyph size - it is the FAB's × close mark, not body text */
         line-height: 1;
       }
 
@@ -947,8 +952,8 @@
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
         border: 1px solid var(--glass-border);
-        border-radius: 18px;
-        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+        border-radius: var(--r-lg);
+        box-shadow: var(--elev-3);
         transform-origin: bottom right;
         pointer-events: auto;
         transition:
@@ -980,7 +985,7 @@
         color: var(--text);
         height: 44px;
         min-width: 44px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         font-size: 1.2rem;
         line-height: 1;
         cursor: pointer;
@@ -1174,14 +1179,14 @@
         cursor: pointer;
         font-family: "Inter", sans-serif;
         font-weight: 600;
-        font-size: 0.76rem;
+        font-size: 0.8rem;
         /* 27px tall was well under the touch minimum; the strip is one row so
            the extra height costs the list almost nothing. */
         min-height: 44px;
         display: inline-flex;
         align-items: center;
         padding: 5px 14px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         white-space: nowrap;
         color: var(--muted);
         background: var(--surface-2);
@@ -1198,7 +1203,7 @@
         flex: none;
         width: 44px;
         height: 44px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: 1px solid transparent;
         background: transparent;
         color: var(--muted);
@@ -1207,7 +1212,7 @@
         cursor: pointer;
         display: grid;
         place-items: center;
-        transition: transform 0.08s ease;
+        transition: transform var(--t-fast) var(--ease);
       }
       .row-add.in {
         background: var(--accent);
@@ -1237,8 +1242,8 @@
         cursor: pointer;
         display: grid;
         place-items: center;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
-        transition: transform 0.08s ease;
+        box-shadow: var(--elev-1);
+        transition: transform var(--t-fast) var(--ease);
       }
       .totop:active {
         transform: scale(0.92);
@@ -1252,7 +1257,7 @@
         flex: none;
         width: 44px;
         height: 44px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: 1px solid transparent;
         background: transparent;
         color: var(--muted);
@@ -1291,7 +1296,7 @@
       /* set-mode row tools: move up / down / remove */
       .row-tools {
         display: inline-flex;
-        gap: 5px;
+        gap: 6px;
         flex: none;
       }
       .row-drag {
@@ -1302,7 +1307,7 @@
         color: var(--muted);
         width: 44px;
         height: 44px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         line-height: 0;
         cursor: grab;
         touch-action: none;
@@ -1323,7 +1328,7 @@
       ul.list li.dragging {
         border: 1px solid var(--border);
         border-radius: var(--r-md);
-        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+        box-shadow: var(--elev-2);
         background: var(--surface);
         list-style: none;
       }
@@ -1388,14 +1393,14 @@
         font-weight: 600;
         font-size: 0.85rem;
         padding: 7px 14px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         color: var(--muted);
         background: var(--surface);
         border: 1px solid var(--border);
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        transition: all 0.15s ease;
+        transition: all var(--t-fast) var(--ease);
       }
       .seg.active {
         color: var(--on-accent);
@@ -1409,7 +1414,7 @@
         min-width: 18px;
         height: 18px;
         padding: 0 5px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         background: var(--surface-2);
         color: var(--text);
         display: inline-grid;
@@ -1474,7 +1479,7 @@
         background-repeat: no-repeat;
         background-position: right 14px center;
         border: 1px solid var(--border);
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         padding: 11px 38px 11px 16px;
         outline: none;
         cursor: pointer;
@@ -1490,7 +1495,7 @@
         flex: none;
         width: 44px;
         height: 44px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: 1px solid var(--border);
         background: var(--surface-2);
         color: var(--text);
@@ -1518,7 +1523,7 @@
         color: var(--muted);
         width: 44px;
         height: 44px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         font-size: 1.2rem;
         line-height: 0;
         cursor: pointer;
@@ -1546,7 +1551,7 @@
         height: 100%;
         width: 0%;
         background: var(--accent-grad);
-        transition: width 0.12s linear;
+        transition: width var(--t-fast) linear; /* linear: correct for a progress bar */
       }
       #progress.scrolling #progress-fill {
         box-shadow: 0 0 8px var(--accent);
@@ -1592,7 +1597,7 @@
         padding: 8vh 16px 16px;
       }
       #login .editor-card {
-        border-radius: 18px; /* all four corners: it no longer meets an edge */
+        border-radius: var(--r-lg); /* all four corners: it no longer meets an edge */
         max-height: calc(100dvh - 32px);
         padding-bottom: 16px;
       }
@@ -1608,7 +1613,7 @@
         overflow-y: auto;
         background: var(--bg);
         border: 1px solid var(--border);
-        border-radius: 18px 18px 0 0;
+        border-radius: var(--r-lg) var(--r-lg) 0 0;
         padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0));
         display: flex;
         flex-direction: column;
@@ -1795,7 +1800,7 @@
         flex: none;
         min-height: 44px;
         padding: 7px 13px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: 1px solid var(--accent-dim);
         background: var(--accent-soft);
         color: var(--accent);
@@ -1809,7 +1814,7 @@
       }
       .ed-hint {
         color: var(--muted);
-        font-size: 13.6px;
+        font-size: 0.85rem;
         line-height: 1.25;
         flex: 1 1 100%;
         margin-left: 0;
@@ -1827,7 +1832,7 @@
         font-size: 0.95rem;
         min-height: 44px;
         padding: 11px 20px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: 1px solid var(--accent);
         background: var(--accent);
         color: var(--on-accent);
@@ -1844,8 +1849,8 @@
         color: var(--danger);
         border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
         margin-left: 12px;
-        transition: background var(--t-fast) ease, color var(--t-fast) ease,
-          border-color var(--t-fast) ease;
+        transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+          border-color var(--t-fast) var(--ease);
       }
       /* phones have no hover - .active is what a tap shows; the hover is
          desktop-only so a touch device never keeps a sticky filled state. */
@@ -2123,7 +2128,7 @@
         gap: 8px;
         padding: 11px 18px;
         border: 1px solid var(--glass-border);
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         background: var(--glass-bg);
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
@@ -2132,7 +2137,7 @@
         font-size: 0.9rem;
         font-weight: 600;
         line-height: 1.2;
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+        box-shadow: var(--elev-2);
         cursor: pointer;
         opacity: 0;
         pointer-events: none;
@@ -2176,12 +2181,12 @@
         min-width: 176px;
         max-width: min(280px, calc(100vw - 16px));
         padding: 12px 14px 14px;
-        border-radius: var(--radius);
+        border-radius: var(--r-md);
         background: var(--glass-bg);
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
         border: 1px solid var(--glass-border);
-        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+        box-shadow: var(--elev-3);
       }
       .cp-head {
         display: flex;
@@ -2199,7 +2204,7 @@
         width: 32px;
         height: 32px;
         border: 1px solid var(--border);
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         background: var(--surface);
         color: var(--muted);
         display: grid;
@@ -2235,7 +2240,7 @@
         flex: 1;
         min-width: 0;
         padding: 8px 12px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: 1px solid var(--border);
         background: var(--surface);
         color: var(--text);
@@ -2249,7 +2254,7 @@
       }
       #cp-save {
         padding: 8px 14px;
-        border-radius: 999px;
+        border-radius: var(--r-pill);
         border: none;
         background: var(--accent-grad);
         color: var(--on-accent);
@@ -2387,7 +2392,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 83</span>
+          &middot; <span id="ver">build 84</span>
         </footer>
       </div>
 
