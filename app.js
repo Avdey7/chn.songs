@@ -2234,6 +2234,28 @@ const APP_NAME = "New Hope Band";
       delta === 0 || current === null || !(songs[current].uid || "").startsWith("g:"),
     );
     scheduleFitColumns();
+    // Tag each section paragraph with its family so the sheet can style it
+    // (chorus card, dashed lead-in, dotted instrumental). Match on the START of
+    // each section's label comment, case-insensitive and order-sensitive so eg.
+    // "Pre-Chorus" hits the lead rule before the chorus rule.
+    const secFamily = [
+      [/^pre-/, "sec-lead"],
+      [/^(chorus|alt chorus|half-chorus|refrain)/, "sec-chorus"],
+      [/^(verse|half-verse)/, "sec-verse"],
+      [/^(bridge|channel|breakdown)/, "sec-bridge"],
+      [/^(intro|instrumental|interlude|solo|turnaround|outro|tag|vamp|hook)/, "sec-instr"],
+    ];
+    sheetEl.querySelectorAll(".paragraph").forEach((p) => {
+      const label = p.querySelector(".comment");
+      if (!label || label.classList.contains("note")) return;
+      const txt = label.textContent.trim().toLowerCase();
+      for (const [re, cls] of secFamily) {
+        if (re.test(txt)) {
+          p.classList.add(cls);
+          break;
+        }
+      }
+    });
   }
 
   // ---- two-column landscape spread (see the html.fit2col CSS note) ----
