@@ -815,6 +815,64 @@ const APP_NAME = "New Hope Band";
     $("ed-text2").value = f.text2 || "";
     $("ed-block2").classList.toggle("hidden", !f.biling);
   }
+  // ---------- draft autosave: survive an incoming call / tab eviction ----------
+  // One draft per session: key "eddraft" holds { uid, t, f:{...field values} }.
+  // Saved on a 600ms debounce and flushed synchronously on visibilitychange-hidden,
+  // because the debounce timer does NOT survive the tab being backgrounded.
+  const DRAFT_KEY = "eddraft";
+  let draftTimer = null;
+  function snapshotFields() {
+    return {
+      name: $("ed-name").value, key: $("ed-key").value, lang: $("ed-lang").value,
+      text: $("ed-text").value, tags: $("ed-tags").value,
+      key2: $("ed-key2").value, lang2: $("ed-lang2").value, text2: $("ed-text2").value,
+      german: $("ed-german").checked, biling: $("ed-biling").checked, german2: $("ed-german2").checked,
+    };
+  }
+  function draftEmpty(f) {
+    return !(f.name || f.text || f.tags || f.text2 || f.key || f.lang || f.key2 || f.lang2);
+  }
+  function saveDraftNow() {
+    const f = snapshotFields();
+    if (draftEmpty(f)) return; // nothing typed yet
+    store.set(DRAFT_KEY, JSON.stringify({ uid: editId || "new", t: Date.now(), f }));
+  }
+  function scheduleDraft() {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraftNow, 600);
+  }
+  function clearDraft() {
+    clearTimeout(draftTimer);
+    store.set(DRAFT_KEY, "");
+  }
+  function relTime(t) {
+    const d = Math.floor((Date.now() - t) / 86400000);
+    if (d >= 1) return d === 1 ? "yesterday" : d + " days ago";
+    const m = Math.max(1, Math.floor((Date.now() - t) / 60000));
+    if (m === 1) return "1 minute ago";
+    if (m < 60) return m + " minutes ago";
+    return Math.floor(m / 60) + " hours ago";
+  }
+  function fieldsEqual(a, b) {
+    return a.name === b.name && a.key === b.key && a.lang === b.lang && a.text === b.text &&
+      a.tags === b.tags && a.key2 === b.key2 && a.lang2 === b.lang2 && a.text2 === b.text2 &&
+      !!a.german === !!b.german && !!a.biling === !!b.biling && !!a.german2 === !!b.german2;
+  }
+  function showDraftBar(uid) {
+    const bar = $("ed-draft-bar");
+    let d = null;
+    try {
+      d = JSON.parse(store.get(DRAFT_KEY, "null")) || null;
+    } catch {
+      d = null;
+    }
+    if (!d || d.uid !== (uid || "new") || fieldsEqual(d.f, snapshotFields())) {
+      bar.classList.add("hidden");
+      return;
+    }
+    $("ed-draft-text").textContent = "Unsaved draft from " + relTime(d.t);
+    bar.classList.remove("hidden");
+  }
   function openEditor(uid) {
     editId = uid || null;
     let f = {};
@@ -870,6 +928,7 @@ const APP_NAME = "New Hope Band";
     $("editor").classList.remove("hidden");
     document.documentElement.classList.add("noscroll");
     history.pushState({ ed: 1 }, ""); // back gesture closes the editor, not the song
+    showDraftBar(uid);
   }
   function closeEditorUI() {
     $("editor").classList.add("hidden");
@@ -962,6 +1021,7 @@ const APP_NAME = "New Hope Band";
         await refreshGlobal();
         closeEditor();
         rerenderOpen(reopenUid);
+        clearDraft();
       } else {
         alert("Couldn't save. Check your connection and that you're an admin.");
       }
@@ -977,6 +1037,7 @@ const APP_NAME = "New Hope Band";
       list.push({ id: "u" + Date.now().toString(36), ...rec });
     }
     saveUserSongs(list);
+    clearDraft();
     renamed();
     build();
     renderList();
@@ -2964,6 +3025,25 @@ const APP_NAME = "New Hope Band";
     $("ed-biling").addEventListener("change", () =>
       $("ed-block2").classList.toggle("hidden", !$("ed-biling").checked),
     );
+    // --- draft autosave: one delegated listener, 600ms debounce, flush on hide
+    const edDraftCard = $("editor").querySelector(".editor-card");
+    edDraftCard.addEventListener("input", scheduleDraft);
+    edDraftCard.addEventListener("change", scheduleDraft);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        clearTimeout(draftTimer);
+        saveDraftNow();
+      }
+    });
+    $("ed-draft-restore").addEventListener("click", () => {
+      const d = JSON.parse(store.get(DRAFT_KEY, "null") || "null");
+      if (d && d.f) fillEditor(d.f); // fills every field incl. toggling ed-block2
+      $("ed-draft-bar").classList.add("hidden");
+    });
+    $("ed-draft-discard").addEventListener("click", () => {
+      clearDraft();
+      $("ed-draft-bar").classList.add("hidden");
+    });
     $("ed-login").addEventListener("click", async () => {
       if (await promptLogin()) {
         updateAdminUI();

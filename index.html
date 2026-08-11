@@ -1845,6 +1845,25 @@
         border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
         margin-left: 12px;
       }
+      /* draft autosave bar: surface-tinted notice row; buttons reuse .ed-btn/.ed-link */
+      #ed-draft-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      #ed-draft-bar .ed-draft-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: none;
+      }
       .login-err {
         color: var(--danger);
         font-size: 0.82rem;
@@ -2339,7 +2358,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 81</span>
+          &middot; <span id="ver">build 82</span>
         </footer>
       </div>
 
@@ -2555,6 +2574,13 @@
 
     <div id="editor" class="editor hidden">
       <div class="editor-card">
+        <div id="ed-draft-bar" class="hidden" role="status">
+          <span id="ed-draft-text">Unsaved draft</span>
+          <span class="ed-draft-actions">
+            <button type="button" id="ed-draft-restore" class="ed-btn">Restore</button>
+            <button type="button" id="ed-draft-discard" class="ed-link">Discard</button>
+          </span>
+        </div>
         <div class="editor-head editor-head-sticky">
           <strong id="editor-title">Add a song</strong>
           <div class="ed-head-actions">
@@ -2577,9 +2603,9 @@
           </span>
         </div>
         <div class="ed-fields">
-          <input id="ed-name" placeholder="Song title" />
-          <input id="ed-key" placeholder="Key (G)" />
-          <input id="ed-lang" placeholder="Language (English)" />
+          <input id="ed-name" autocapitalize="words" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Song title" />
+          <input id="ed-key" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Key (G)" />
+          <input id="ed-lang" autocapitalize="words" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Language (English)" />
           <label class="ed-check"><input type="checkbox" id="ed-german" /> Slavic notation (H = B)</label>
         </div>
         <input id="ed-bpm" type="hidden" />
@@ -2587,20 +2613,20 @@
           <button type="button" id="ed-format" class="ed-mini">✨ Format pasted text</button>
           <span class="ed-hint">Paste from any site (chords-over-lyrics, ChordPro, or messy copy) then tap Format</span>
         </div>
-        <textarea id="ed-text" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below.&#10;&#10;Or paste raw text from a worship site and tap “Format pasted text”."></textarea>
+        <textarea id="ed-text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below.&#10;&#10;Or paste raw text from a worship site and tap “Format pasted text”."></textarea>
 
-        <div class="ed-fields"><input id="ed-tags" placeholder="Tags, comma-separated (fast, communion, christmas)" /></div>
+        <div class="ed-fields"><input id="ed-tags" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Tags, comma-separated (fast, communion, christmas)" /></div>
         <label class="ed-check"><input type="checkbox" id="ed-biling" /> Add a 2nd language</label>
         <div id="ed-block2" class="hidden">
           <div class="ed-fields">
-            <input id="ed-key2" placeholder="Key (A)" />
-            <input id="ed-lang2" placeholder="Language (Українською)" />
+            <input id="ed-key2" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Key (A)" />
+            <input id="ed-lang2" autocapitalize="words" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Language (Українською)" />
             <label class="ed-check"><input type="checkbox" id="ed-german2" /> Slavic notation (H = B)</label>
           </div>
           <div class="ed-import-row">
             <button type="button" id="ed-format2" class="ed-mini">✨ Format pasted text</button>
           </div>
-          <textarea id="ed-text2" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below."></textarea>
+          <textarea id="ed-text2" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below."></textarea>
         </div>
       </div>
     </div>
