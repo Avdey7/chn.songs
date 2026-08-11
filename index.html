@@ -1828,7 +1828,7 @@
         min-height: 44px;
         padding: 11px 20px;
         border-radius: 999px;
-        border: none;
+        border: 1px solid var(--accent);
         background: var(--accent);
         color: var(--on-accent);
       }
@@ -1844,6 +1844,29 @@
         color: var(--danger);
         border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
         margin-left: 12px;
+        transition: background var(--t-fast) ease, color var(--t-fast) ease,
+          border-color var(--t-fast) ease;
+      }
+      /* phones have no hover - .active is what a tap shows; the hover is
+         desktop-only so a touch device never keeps a sticky filled state. */
+      #ed-delete:active {
+        background: var(--danger);
+        color: #fff;
+        border-color: var(--danger);
+      }
+      @media (hover: hover) {
+        #ed-delete:hover {
+          background: var(--danger);
+          color: #fff;
+          border-color: var(--danger);
+        }
+      }
+      /* bring the circular close into the same header-button family */
+      #ed-close {
+        width: var(--ctl-h);
+        height: var(--ctl-h);
+        border: 1px solid var(--border);
+        border-radius: var(--r-pill);
       }
       /* draft autosave bar: surface-tinted notice row; buttons reuse .ed-btn/.ed-link */
       #ed-draft-bar {
@@ -2040,7 +2063,13 @@
         #progress,
         .keyline,
         .appfoot,
-        .editor {
+        .editor,
+        #song-view header,
+        .song-header,
+        #quickbar,
+        #totop,
+        #list-view,
+        button {
           display: none !important;
         }
         #app {
@@ -2358,7 +2387,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 82</span>
+          &middot; <span id="ver">build 83</span>
         </footer>
       </div>
 
