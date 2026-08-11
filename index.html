@@ -1403,6 +1403,14 @@
       .seg-clear:active {
         color: var(--accent);
       }
+      /* reserved-but-hidden state: the empty set must not change the tabs row
+         height (display:none pushed #list down ~10px the moment the set gained
+         its first song). Stay laid out but invisible + non-interactive, and
+         unfocusable/aria-hidden so assistive tech never sees it. */
+      .seg-clear.empty {
+        visibility: hidden;
+        pointer-events: none;
+      }
       /* named-set toolbar (shown in Set tab) */
       .set-bar {
         display: flex;
@@ -1721,11 +1729,22 @@
            browser's back-swipe (which would close the editor + lose edits) */
         overscroll-behavior: contain;
       }
-      /* once focused (tapped in), restore full touch handling so the textarea
-         edits and horizontally pans its own long chord lines normally */
+      /* while UNFOCUSED the textarea must have NOTHING to scroll, or the
+         vertical pan is consumed scrolling the field's OWN content and never
+         reaches the editor sheet (pan-y permits the gesture but does not pick
+         its receiver - the nearest scrollable ancestor, and a tall overflow-y
+         textarea qualifies). */ 
+      #ed-text:not(:focus),
+      #ed-text2:not(:focus) {
+        overflow: hidden;
+      }
+      /* once focused (tapped in), restore full touch handling and the field's
+         own scrollers so you can edit, scroll and horizontally pan long chord
+         lines; typed content is untouched when focus moves */
       #ed-text:focus,
       #ed-text2:focus {
         touch-action: auto;
+        overflow: auto;
       }
       .ed-import-row {
         display: flex;
@@ -2229,7 +2248,7 @@
           <button class="seg" id="tab-set">
             Set <span class="seg-badge" id="set-count">0</span>
           </button>
-          <button class="seg-clear hidden" id="set-clear">Clear set</button>
+          <button class="seg-clear" id="set-clear">Clear set</button>
         </div>
         <div class="set-bar hidden" id="set-bar">
           <select id="set-select" aria-label="Choose set"></select>
@@ -2279,7 +2298,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 76</span>
+          &middot; <span id="ver">build 77</span>
         </footer>
       </div>
 

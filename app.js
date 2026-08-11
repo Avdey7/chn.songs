@@ -1450,7 +1450,20 @@ const APP_NAME = "New Hope Band";
     const badge = $("set-count");
     if (badge) badge.textContent = n;
     const clear = $("set-clear");
-    if (clear) clear.classList.toggle("hidden", n === 0);
+    if (clear) {
+      const empty = n === 0;
+      // reserve the space so the tabs row height is identical empty vs
+      // populated (the old display:none shifted #list down ~10px on the first
+      // add); hide it from view, interaction AND assistive tech when empty.
+      clear.classList.toggle("empty", empty);
+      if (empty) {
+        clear.setAttribute("aria-hidden", "true");
+        clear.tabIndex = -1;
+      } else {
+        clear.removeAttribute("aria-hidden");
+        clear.tabIndex = 0;
+      }
+    }
   }
 
   // ---- list ----
@@ -1513,20 +1526,14 @@ const APP_NAME = "New Hope Band";
     return null;
   }
 
-  // one-time swipe affordance: shown until the first swipe actually commits,
-  // then retired for good. store() is the localStorage wrapper (try/catch), so a
-  // storage-blocked browser just shows the hint every visit rather than throwing.
-  const SWIPE_HINT_KEY = "swipehintdone";
-  function retireSwipeHint() {
-    if (store.get(SWIPE_HINT_KEY)) return;
-    store.set(SWIPE_HINT_KEY, "1");
-    const el = $("swipe-hint");
-    if (el) el.classList.add("hidden");
-  }
+  // persistent swipe affordance: shown whenever the All view has rows (hidden
+  // in Set view, and >=641px where real buttons exist - both handled in CSS).
+  // Intentionally NOT one-time: a team that already swiped should still be
+  // reminded, so there is no "retired" gate and no stored key to read.
   function syncSwipeHint(show) {
     const el = $("swipe-hint");
     if (!el) return;
-    el.classList.toggle("hidden", !show || !!store.get(SWIPE_HINT_KEY));
+    el.classList.toggle("hidden", !show);
   }
 
   // reveal-style row swipe: slide the row's content to expose a shade action on
@@ -1588,7 +1595,6 @@ const APP_NAME = "New Hope Band";
         li.classList.remove("swiped", "reveal-left", "reveal-right");
         return;
       }
-      retireSwipeHint(); // they found it; stop teaching it
       const dir = dx > 0 ? 1 : -1; // right = favourite, left = add/remove from set
       // commit the action immediately, then show the revealed (now updated)
       // shade for a beat so the user sees what happened before it springs back
