@@ -1540,9 +1540,15 @@ const APP_NAME = "New Hope Band";
   // in Set view, and >=641px where real buttons exist - both handled in CSS).
   // Intentionally NOT one-time: a team that already swiped should still be
   // reminded, so there is no "retired" gate and no stored key to read.
-  function syncSwipeHint(show) {
+  // One hint element, two gestures: the All view teaches swipe-for-actions, the
+  // Set view teaches press-and-hold-to-reorder (the visible drag grip is hidden
+  // under 641px, so on a phone that gesture has no other affordance at all).
+  function syncSwipeHint(show, inSet) {
     const el = $("swipe-hint");
     if (!el) return;
+    el.textContent = inSet
+      ? "Press and hold a song to reorder"
+      : "Swipe a song for favourite & set";
     el.classList.toggle("hidden", !show);
   }
 
@@ -1662,7 +1668,9 @@ const APP_NAME = "New Hope Band";
       ? matches.length + (matches.length === 1 ? " song in this set" : " songs in this set")
       : matches.length + (matches.length === 1 ? " song" : " songs");
     // only where the gesture exists: All view (Set rows use remove/drag instead)
-    syncSwipeHint(!setView && matches.length > 0);
+    // Set view only offers reordering when the list is unfiltered -- a filtered
+    // order does not map onto the stored set -- so do not teach it during a search.
+    syncSwipeHint(matches.length > 0 && (!setView || !q), setView);
 
     if (!matches.length) {
       let msg;
