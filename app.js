@@ -2161,7 +2161,48 @@ const APP_NAME = "New Hope Band";
       "hidden",
       delta === 0 || current === null || !(songs[current].uid || "").startsWith("g:"),
     );
+    scheduleFitColumns();
   }
+
+  // ---- two-column landscape spread (see the html.fit2col CSS note) ----
+  // Two columns halve the page height, but only help when the result then fits
+  // on screen entirely. If it does not, the reader scrolls a whole column down
+  // and must scroll all the way back UP for column two - worse than one column.
+  // So measure per song: switch columns on, keep them only if nothing scrolls.
+  // Add + measure + revert all happen inside one rAF callback, before paint, so
+  // a rejected two-column layout is never shown.
+  let fitRaf = 0;
+  function fitColumns() {
+    const root = document.documentElement;
+    const cs = current !== null && sheetEl ? sheetEl.querySelector(".chord-sheet") : null;
+    if (!cs) {
+      root.classList.remove("fit2col");
+      return;
+    }
+    root.classList.add("fit2col");
+    // the media query (landscape, >=600x600) is the hard floor; if it did not
+    // match, columnCount stays "auto" and there is nothing to decide
+    if (getComputedStyle(cs).columnCount !== "2") {
+      root.classList.remove("fit2col");
+      return;
+    }
+    // Measure with LAYOUT offsets. Two earlier attempts were wrong:
+    // document.scrollHeight lags a shrink while the page is scrolled down (so
+    // mid-song re-measures always rejected), and getBoundingClientRect().top is
+    // displaced by the song-open transform animation (animateSheet), which made
+    // the result a race against that animation. offsetTop/offsetHeight ignore
+    // both transforms and scroll position.
+    let need = cs.offsetHeight;
+    for (let el = cs; el; el = el.offsetParent) need += el.offsetTop;
+    if (need > window.innerHeight) root.classList.remove("fit2col");
+  }
+  function scheduleFitColumns() {
+    cancelAnimationFrame(fitRaf);
+    fitRaf = requestAnimationFrame(fitColumns);
+  }
+  // text size, stage mode and rotation all change whether the sheet still fits
+  window.addEventListener("resize", scheduleFitColumns);
+  window.addEventListener("orientationchange", scheduleFitColumns);
 
   const ICON_PLAY =
     '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20"/></svg>';
@@ -2273,6 +2314,7 @@ const APP_NAME = "New Hope Band";
     stopScroll();
     releaseWakeLock();
     current = null;
+    scheduleFitColumns(); // drop html.fit2col; the list is never two-column
     songView.classList.add("hidden");
     listView.classList.remove("hidden");
     fabWrap.classList.add("hidden");
@@ -2634,6 +2676,7 @@ const APP_NAME = "New Hope Band";
     const btn = $("chords-btn");
     btn.classList.toggle("on", on);
     btn.title = on ? "Chords on" : "Lyrics only";
+    scheduleFitColumns();
   }
   function toggleChords() {
     store.set("chords", store.get("chords", "1") !== "0" ? "0" : "1");
@@ -2684,6 +2727,7 @@ const APP_NAME = "New Hope Band";
     store.set("size", size.toFixed(2));
     const now = $("size-now");
     if (now) now.textContent = Math.round(size * 100) + "%";
+    scheduleFitColumns();
   }
   function resetSize() {
     size = 1.0;
@@ -2943,6 +2987,7 @@ const APP_NAME = "New Hope Band";
     $("stage-btn").addEventListener("click", () => {
       document.documentElement.classList.toggle("stage");
       closeControls();
+      scheduleFitColumns(); // stage mode scales the sheet 1.5x
     });
     $("fab-auth-btn").addEventListener("click", async () => {
       closeControls();
