@@ -1666,6 +1666,14 @@
         flex-direction: column;
         gap: 10px;
       }
+      /* The editor's sticky header supplies the top spacing itself, so the card
+         must not add any above it - otherwise the header pins BELOW that padding
+         and content scrolls through the gap. (A negative margin cannot fix this:
+         sticky keeps the MARGIN box in the scrollport, so a -16px top margin is
+         exactly cancelled by the sticky offset.) */
+      #editor .editor-card {
+        padding-top: 0;
+      }
       .editor-head {
         display: flex;
         align-items: center;
@@ -1681,9 +1689,11 @@
         top: 0;
         z-index: 3;
         background: var(--bg);
-        /* bleed over the card's 16px side padding so nothing shows beside it */
+        /* The header supplies its own top padding because the editor card's is
+           removed (see #editor .editor-card) - so it pins flush with nothing
+           scrolling through a gap. side bleed over the card's 16px padding. */
         margin: 0 -16px;
-        padding: 0 16px 8px;
+        padding: 16px 16px 8px;
         border-bottom: 1px solid var(--border);
       }
       .ed-head-actions {
@@ -2403,7 +2413,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 92</span>
+          &middot; <span id="ver">build 93</span>
         </footer>
       </div>
 
@@ -2619,14 +2629,6 @@
 
     <div id="editor" class="editor hidden">
       <div class="editor-card">
-        <div id="ed-err" class="login-err" role="alert" hidden></div>
-        <div id="ed-draft-bar" class="hidden" role="status">
-          <span id="ed-draft-text">Unsaved draft</span>
-          <span class="ed-draft-actions">
-            <button type="button" id="ed-draft-restore" class="ed-btn">Restore</button>
-            <button type="button" id="ed-draft-discard" class="ed-link">Discard</button>
-          </span>
-        </div>
         <div class="editor-head editor-head-sticky">
           <strong id="editor-title">Add a song</strong>
           <div class="ed-head-actions">
@@ -2634,6 +2636,14 @@
             <button class="ed-btn ghost" id="ed-delete">Delete</button>
             <button class="iconbtn" id="ed-close" aria-label="Close">&times;</button>
           </div>
+        </div>
+        <div id="ed-err" class="login-err" role="alert" hidden></div>
+        <div id="ed-draft-bar" class="hidden" role="status">
+          <span id="ed-draft-text">Unsaved draft</span>
+          <span class="ed-draft-actions">
+            <button type="button" id="ed-draft-restore" class="ed-btn">Restore</button>
+            <button type="button" id="ed-draft-discard" class="ed-link">Discard</button>
+          </span>
         </div>
         <div class="ed-admin" id="ed-admin">
           <span class="ed-dot"></span>
