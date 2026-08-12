@@ -2222,8 +2222,9 @@
         color: var(--accent);
       }
       #cp-edit {
-        width: 32px;
-        height: 32px;
+        width: var(--ctl-h);
+        height: var(--ctl-h);
+        font-size: 0.9rem;
         border: 1px solid var(--border);
         border-radius: var(--r-pill);
         background: var(--surface);
@@ -2260,6 +2261,7 @@
         width: 100px;
         flex: 1;
         min-width: 0;
+        min-height: var(--ctl-h);
         padding: 8px 12px;
         border-radius: var(--r-pill);
         border: 1px solid var(--border);
@@ -2275,6 +2277,8 @@
       }
       #cp-save {
         padding: 8px 14px;
+        min-height: var(--ctl-h);
+        font-size: 0.9rem;
         border-radius: var(--r-pill);
         border: none;
         background: var(--accent-grad);
@@ -2413,7 +2417,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 95</span>
+          &middot; <span id="ver">build 96</span>
         </footer>
       </div>
 
