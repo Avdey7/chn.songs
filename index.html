@@ -1930,15 +1930,20 @@
         color: var(--text);
         border: 1px solid var(--border);
       }
-      /* destructive action in the sticky editor header: transparent, danger red,
-         and held 12px off the primary Save so a thumb aimed at Save can't land here. */
+      /* Destructive, so it must be reachable but never prominent: it rests as a
+         quiet neutral circle matching #ed-close, and only turns solid danger red
+         when actually pressed. The 12px margin keeps it off the primary Save. */
       #ed-delete {
-        background: transparent;
-        color: var(--danger);
-        border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+        color: var(--muted);
         margin-left: 12px;
-        transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+        transition:
+          background var(--t-fast) var(--ease),
+          color var(--t-fast) var(--ease),
           border-color var(--t-fast) var(--ease);
+      }
+      #ed-delete svg {
+        width: 19px;
+        height: 19px;
       }
       /* phones have no hover - .active is what a tap shows; the hover is
          desktop-only so a touch device never keeps a sticky filled state. */
@@ -2444,7 +2449,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 100</span>
+          &middot; <span id="ver">build 101</span>
         </footer>
       </div>
 
@@ -2664,7 +2669,14 @@
           <strong id="editor-title">Add a song</strong>
           <div class="ed-head-actions">
             <button class="ed-btn" id="ed-save">Save</button>
-            <button class="ed-btn ghost" id="ed-delete">Delete</button>
+            <button class="iconbtn" id="ed-delete" aria-label="Delete song" title="Delete song">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </button>
             <button class="iconbtn" id="ed-close" aria-label="Close">&times;</button>
           </div>
         </div>

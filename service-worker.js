@@ -4,7 +4,7 @@
    songs show up on reload without any cache-clearing. When OFFLINE it serves
    the last cached copy. You no longer need to bump the version every time you
    add a song; only bump it if you change the icons or the chordsheetjs file. */
-const CACHE_VERSION = "songbook-v100";
+const CACHE_VERSION = "songbook-v101";
 // Fonts are content-versioned by Google, so a given URL's bytes never change.
 // This cache is deliberately NOT tied to CACHE_VERSION: version-scoping it meant
 // every deploy deleted the fonts and forced a fresh download, and left anyone
