@@ -4,7 +4,12 @@
    songs show up on reload without any cache-clearing. When OFFLINE it serves
    the last cached copy. You no longer need to bump the version every time you
    add a song; only bump it if you change the icons or the chordsheetjs file. */
-const CACHE_VERSION = "songbook-v94";
+const CACHE_VERSION = "songbook-v95";
+// Fonts are content-versioned by Google, so a given URL's bytes never change.
+// This cache is deliberately NOT tied to CACHE_VERSION: version-scoping it meant
+// every deploy deleted the fonts and forced a fresh download, and left anyone
+// offline right after an update with no webfonts at all.
+const FONT_CACHE = "songbook-fonts";
 
 const PRECACHE = [
   ".", "index.html", "app.js", "songs.js", "convert-core.js", "chord-diagrams.js", "manifest.json",
@@ -26,7 +31,7 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION && k !== CACHE_VERSION + "-fonts").map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION && k !== FONT_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -62,7 +67,7 @@ self.addEventListener("fetch", (e) => {
   // Google Fonts -> cache-first in a separate cache
   if (url.hostname.includes("fonts.googleapis.com") || url.hostname.includes("fonts.gstatic.com")) {
     e.respondWith((async () => {
-      const cache = await caches.open(CACHE_VERSION + "-fonts");
+      const cache = await caches.open(FONT_CACHE);
       const hit = await cache.match(req);
       if (hit) return hit;
       try { const res = await fetch(req); cache.put(req, res.clone()); return res; }
