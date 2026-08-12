@@ -92,6 +92,14 @@
         --r-pill: 999px; /* fully round: buttons, chips, pills */
         --r-md: 12px; /* rounded rect: inputs, textareas, cards */
         --r-lg: 18px; /* large corners: bottom sheets, dialogs */
+        /* Spacing scale. Motion, radius, elevation and type were systematised in
+           build 84; spacing was not, leaving 18 arbitrary padding values. 4px base. */
+        --sp-1: 4px;
+        --sp-2: 8px;
+        --sp-3: 12px;
+        --sp-4: 16px;
+        --sp-5: 24px;
+        --sp-6: 40px;
         /* elevation scale - by blur radius, measured from the surfaces that use them */
         --elev-1: 0 6px 18px rgba(0, 0, 0, 0.32); /* raised: FAB at rest, small floating controls */
         --elev-2: 0 10px 26px rgba(0, 0, 0, 0.35); /* floating: popovers, toasts */
@@ -306,7 +314,7 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 14px 0 10px;
+        padding: var(--sp-2) 0 var(--sp-2);
       }
       .brand {
         font-family: "Inter", sans-serif;
@@ -345,7 +353,7 @@
 
       .search-wrap {
         position: relative;
-        padding-bottom: 12px;
+        padding-bottom: var(--sp-2);
       }
       #search {
         width: 100%;
@@ -400,12 +408,19 @@
       }
 
       /* ---------- song list ---------- */
+      .list-meta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        margin: 0 2px var(--sp-2);
+      }
       .count {
         color: var(--muted);
         font-size: 0.8rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        margin: 4px 2px 10px;
+        margin: 0;
       }
       ul.list {
         list-style: none;
@@ -567,7 +582,7 @@
       .swipe-hint {
         font-size: 0.72rem;
         color: var(--muted);
-        padding: 0 6px 8px;
+        padding: 0;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -2059,7 +2074,7 @@
         display: flex;
         gap: 6px;
         overflow-x: auto;
-        margin: 0 0 12px;
+        margin: 0 0 var(--sp-2);
         scrollbar-width: none;
       }
       .tag-bar::-webkit-scrollbar {
@@ -2419,15 +2434,17 @@
           </button>
         </div>
         <div class="tag-bar hidden" id="tag-bar"></div>
-        <div class="count" id="count"></div>
-        <div class="swipe-hint hidden" id="swipe-hint">
-          Swipe a song for favourite &amp; set
+        <div class="list-meta">
+          <span class="count" id="count"></span>
+          <span class="swipe-hint hidden" id="swipe-hint">
+            Swipe a song for favourite &amp; set
+          </span>
         </div>
         <ul class="list" id="list"></ul>
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 98</span>
+          &middot; <span id="ver">build 99</span>
         </footer>
       </div>
 

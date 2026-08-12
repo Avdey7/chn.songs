@@ -1725,7 +1725,7 @@ const APP_NAME = "New Hope Band";
     if (!el) return;
     el.textContent = inSet
       ? "Press and hold a song to reorder"
-      : "Swipe a song left or right for set & favourite";
+      : "Swipe left or right for set & favourite";
     el.classList.toggle("hidden", !show);
   }
 
