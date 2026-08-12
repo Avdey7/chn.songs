@@ -934,6 +934,7 @@ const APP_NAME = "New Hope Band";
     $("editor").classList.remove("hidden");
     document.documentElement.classList.add("noscroll");
     history.pushState({ ed: 1 }, ""); // back gesture closes the editor, not the song
+    edError("");
     showDraftBar(uid);
   }
   function closeEditorUI() {
@@ -953,6 +954,15 @@ const APP_NAME = "New Hope Band";
       editorClosing = true; // an intentional close: let popstate hide the editor
       history.back();
     } else closeEditorUI();
+  }
+  // Inline editor error, same pattern as #login-err: a failed save must not
+  // hide the text the user is trying to rescue behind a modal.
+  function edError(msg) {
+    const e = $("ed-err");
+    if (!e) return;
+    e.textContent = msg || "";
+    e.hidden = !msg;
+    if (msg) e.scrollIntoView({ block: "nearest" });
   }
   async function saveEditor() {
     const name = $("ed-name").value.trim();
@@ -1029,7 +1039,7 @@ const APP_NAME = "New Hope Band";
         rerenderOpen(reopenUid);
         clearDraft();
       } else {
-        alert("Couldn't save. Check your connection and that you're an admin.");
+        edError("Couldn't save. Check your connection and that you're still signed in as an admin.");
       }
       return;
     }
@@ -1071,9 +1081,54 @@ const APP_NAME = "New Hope Band";
     $("edit-btn").classList.toggle("hidden", !songs[i].uid || !loggedIn());
     syncNav();
   }
+  // In-app replacement for native confirm()/prompt(): one dialog, promise-based.
+  // Resolves true / the input string on OK, and false / null on cancel.
+  function ask(opts) {
+    return new Promise((resolve) => {
+      const o = opts || {};
+      const box = $("ask"), inp = $("ask-input"), ok = $("ask-ok"), cancel = $("ask-cancel"), x = $("ask-close");
+      $("ask-title").textContent = o.title || "";
+      $("ask-msg").textContent = o.message || "";
+      $("ask-msg").classList.toggle("hidden", !o.message);
+      inp.classList.toggle("hidden", !o.input);
+      inp.value = o.input ? (o.value || "") : "";
+      ok.textContent = o.okLabel || "OK";
+      ok.classList.toggle("danger", !!o.danger);
+      cancel.classList.toggle("hidden", !!o.notice);
+      box.classList.remove("hidden");
+      const done = (val) => {
+        box.classList.add("hidden");
+        ok.removeEventListener("click", onOk);
+        cancel.removeEventListener("click", onCancel);
+        x.removeEventListener("click", onCancel);
+        document.removeEventListener("keydown", onKey);
+        resolve(val);
+      };
+      const onOk = () => done(o.input ? inp.value : true);
+      const onCancel = () => done(o.input ? null : false);
+      const onKey = (e) => {
+        if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        else if (e.key === "Enter" && (document.activeElement === inp || document.activeElement === ok)) { e.preventDefault(); onOk(); }
+      };
+      ok.addEventListener("click", onOk);
+      cancel.addEventListener("click", onCancel);
+      x.addEventListener("click", onCancel);
+      document.addEventListener("keydown", onKey);
+      setTimeout(() => (o.input ? inp : ok).focus(), 30);
+    });
+  }
+  function askConfirm(title, message, opts) {
+    return ask(Object.assign({ title, message }, opts || {}));
+  }
+  function askPrompt(title, message, value) {
+    return ask({ title, message, input: true, value });
+  }
+  function askNotice(title, message) {
+    return ask({ title, message, notice: true });
+  }
   async function deleteEditor() {
     if (!editId) return;
-    if (!confirm("Delete this song for everyone?")) return;
+    if (!(await askConfirm("Delete song", "Delete this song for everyone?", { okLabel: "Delete", danger: true }))) return;
     const wasOpen = current !== null;
     if (editId.startsWith("g:")) {
       let res = await sbDelete(editId.slice(2));
@@ -1082,7 +1137,7 @@ const APP_NAME = "New Hope Band";
         res = await sbDelete(editId.slice(2));
       }
       if (!res.ok) {
-        alert("Couldn't delete. Check your connection / admin login.");
+        edError("Couldn't delete. Check your connection and that you're still signed in as an admin.");
         return;
       }
       await refreshGlobal();
@@ -1096,7 +1151,7 @@ const APP_NAME = "New Hope Band";
   }
   // load the previous version INTO the editor so you can see it before applying
   // (then Save commits it; the current version becomes the new "previous")
-  function restorePrev() {
+  async function restorePrev() {
     if (!editId || !editId.startsWith("g:")) return;
     const g = getGlobalCache().find(
       (x) => "g:" + (x.num != null ? x.num : x.id) === editId,
@@ -1124,7 +1179,7 @@ const APP_NAME = "New Hope Band";
       }
     }
     fillEditor(f);
-    alert("Loaded the previous version. Review it, then Save to apply.");
+    await askNotice("Previous version loaded", "Review it, then Save to apply.");
   }
 
   // ---- named sets (one per service) ---------------------------------------
@@ -1316,8 +1371,8 @@ const APP_NAME = "New Hope Band";
       return null;
     }
   }
-  function importSetPrompt() {
-    const text = prompt("Paste a shared set link:");
+  async function importSetPrompt() {
+    const text = await askPrompt("Import a set", "Paste a shared set link.", "");
     if (!text) return;
     const r = importFromText(text);
     if (r) {
@@ -1325,21 +1380,16 @@ const APP_NAME = "New Hope Band";
       setListMode("set");
       renderSetBar();
       if (r.dup) {
-        alert('You already have "' + s.name + '" - switched to it.');
+        await askNotice("Already imported", 'You already have "' + s.name + '" - switched to it.');
       } else {
         const have = s.songs.filter((t) => songs.some((x) => x.title === t)).length;
-        alert(
-          'Imported "' +
-            s.name +
-            '" - ' +
-            have +
-            " of " +
-            s.songs.length +
-            " songs found in this app.",
+        await askNotice(
+          "Set imported",
+          'Imported "' + s.name + '" - ' + have + " of " + s.songs.length + " songs found in this app.",
         );
       }
     } else {
-      alert("Sorry, that link could not be read.");
+      await askNotice("Could not read that link", "Check that you copied the whole link, then try again.");
     }
   }
   // auto-import when the app is opened from a share link
@@ -2567,13 +2617,13 @@ const APP_NAME = "New Hope Band";
     if (!song.uid || !song.uid.startsWith("g:") || !sbOn()) return;
     const v = song.versions[vi];
     if (!ensureParsed(v)) return;
-    if (!confirm("Save the current key for everyone? This rewrites the song's chords."))
+    if (!(await askConfirm("Save key for everyone", "This rewrites the song's chords.", { okLabel: "Save key" })))
       return;
     let cp;
     try {
       cp = new CS.ChordProFormatter().format(v.parsed.transpose(delta));
     } catch {
-      alert("Couldn't transpose this song.");
+      await askNotice("Couldn't transpose", "This song could not be transposed.");
       return;
     }
     const newKey = fixEnharmonic(keyName(v.key, delta) || v.key || "");
@@ -2598,7 +2648,7 @@ const APP_NAME = "New Hope Band";
       res = await sbWrite({ data, src: null }, song.uid.slice(2));
     }
     if (!res.ok) {
-      alert("Couldn't save the new key.");
+      await askNotice("Couldn't save the key", "Check your connection and that you're still signed in.");
       return;
     }
     store.set(trKey(), "0");
@@ -3177,34 +3227,34 @@ const APP_NAME = "New Hope Band";
     });
     $("tab-all").addEventListener("click", () => setListMode("all"));
     $("tab-set").addEventListener("click", () => setListMode("set"));
-    $("set-clear").addEventListener("click", () => {
+    $("set-clear").addEventListener("click", async () => {
       if (!getSet().length) return;
-      if (!confirm("Clear all songs from this set?")) return;
+      if (!(await askConfirm("Clear set", "Remove every song from this set?", { okLabel: "Clear", danger: true }))) return;
       clearSet();
       renderList();
     });
     // named-set controls
     $("set-select").addEventListener("change", (e) => switchSet(e.target.value));
-    $("set-new").addEventListener("click", () => {
-      const name = prompt("Name this set:", "");
+    $("set-new").addEventListener("click", async () => {
+      const name = await askPrompt("Name this set", "", "");
       if (name === null) return;
       createSet(name.trim() || "New set");
       renderSetBar();
       updateSetCount();
       renderList();
     });
-    $("set-rename").addEventListener("click", () => {
+    $("set-rename").addEventListener("click", async () => {
       const s = activeSet();
       if (!s) return;
-      const name = prompt("Rename set:", s.name);
+      const name = await askPrompt("Rename set", "", s.name);
       if (name === null) return;
       renameSet(s.id, name.trim() || s.name);
       renderSetBar();
     });
-    $("set-delete").addEventListener("click", () => {
+    $("set-delete").addEventListener("click", async () => {
       const s = activeSet();
       if (!s) return;
-      if (!confirm('Delete the set "' + s.name + '"?')) return;
+      if (!(await askConfirm("Delete set", 'Delete the set "' + s.name + '"?', { okLabel: "Delete", danger: true }))) return;
       deleteSet(s.id);
       renderSetBar();
       updateSetCount();

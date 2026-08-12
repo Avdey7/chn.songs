@@ -1616,6 +1616,17 @@
         place-items: start center;
         padding: 8vh 16px 16px;
       }
+      /* In-app confirm/prompt dialog: centred like the login sheet, not a
+         bottom sheet. The design rule is "no click-outside-to-close" (build 38)
+         and no history push - both intentional. */
+      #ask { place-items: start center; padding: 12vh 16px 16px; }
+      #ask .editor-card {
+        max-width: 380px;
+        border-radius: var(--r-lg); /* all four corners: a centred dialog, not a bottom sheet */
+      }
+      .ask-msg { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+      .ask-actions { display: flex; gap: 8px; justify-content: flex-end; }
+      #ask-ok.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
       #login .editor-card {
         border-radius: var(--r-lg); /* all four corners: it no longer meets an edge */
         max-height: calc(100dvh - 32px);
@@ -2370,7 +2381,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 90</span>
+          &middot; <span id="ver">build 91</span>
         </footer>
       </div>
 
@@ -2586,6 +2597,7 @@
 
     <div id="editor" class="editor hidden">
       <div class="editor-card">
+        <div id="ed-err" class="login-err" role="alert" hidden></div>
         <div id="ed-draft-bar" class="hidden" role="status">
           <span id="ed-draft-text">Unsaved draft</span>
           <span class="ed-draft-actions">
@@ -2670,6 +2682,21 @@
     </div>
 
     <!-- SHARE SET -->
+    <!-- In-app confirm/prompt dialog (replaces native confirm()/prompt()) -->
+    <div id="ask" class="editor hidden" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+      <div class="editor-card ask-card">
+        <div class="editor-head">
+          <strong id="ask-title"></strong>
+          <button class="iconbtn" id="ask-close" aria-label="Close">&times;</button>
+        </div>
+        <p id="ask-msg" class="ask-msg"></p>
+        <input id="ask-input" class="hidden" />
+        <div class="ask-actions">
+          <button class="ed-btn ghost" id="ask-cancel">Cancel</button>
+          <button class="ed-btn" id="ask-ok">OK</button>
+        </div>
+      </div>
+    </div>
     <div id="share" class="editor hidden">
       <div class="editor-card share-card">
         <div class="editor-head">
