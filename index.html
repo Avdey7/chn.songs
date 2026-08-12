@@ -1807,6 +1807,16 @@
         height: 18px;
         accent-color: var(--accent);
       }
+      /* which language each lyrics box holds - mirrors the sheet's section
+         label styling (mono, uppercase, tracked) so it reads as a heading */
+      .ed-block-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
       #ed-text,
       #ed-text2 {
         width: 100%;
@@ -2417,7 +2427,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 97</span>
+          &middot; <span id="ver">build 98</span>
         </footer>
       </div>
 
@@ -2673,6 +2683,7 @@
           <button type="button" id="ed-format" class="ed-mini">✨ Format pasted text</button>
           <span class="ed-hint">Paste from any site (chords-over-lyrics, ChordPro, or messy copy) then tap Format</span>
         </div>
+        <div class="ed-block-label" id="ed-label1">First language</div>
         <textarea id="ed-text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below.&#10;&#10;Or paste raw text from a worship site and tap “Format pasted text”."></textarea>
 
         <div class="ed-fields"><input id="ed-tags" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Tags: fast, communion, christmas" /></div>
@@ -2686,6 +2697,7 @@
           <div class="ed-import-row">
             <button type="button" id="ed-format2" class="ed-mini">✨ Format pasted text</button>
           </div>
+          <div class="ed-block-label" id="ed-label2">Second language</div>
           <textarea id="ed-text2" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below."></textarea>
         </div>
       </div>

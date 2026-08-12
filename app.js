@@ -806,6 +806,29 @@ const APP_NAME = "New Hope Band";
       text: out.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
     };
   }
+  // The song view always shows the English version first (see the sort in
+  // normalize()). The editor used to populate from the raw stored order, which
+  // for 9 of 10 bilingual songs put the NON-English text in the top box while
+  // the view showed English first - an easy way to paste a correction into the
+  // wrong language. Same predicate as normalize() so the two cannot drift.
+  const isEnglishLang = (l) => /eng|англ/i.test(l || "");
+  function englishFirst(f) {
+    if (!f || !f.biling) return f;
+    if (isEnglishLang(f.lang) || !isEnglishLang(f.lang2)) return f;
+    return {
+      ...f,
+      lang: f.lang2, key: f.key2, german: !!f.german2, text: f.text2,
+      lang2: f.lang, key2: f.key, german2: !!f.german, text2: f.text,
+    };
+  }
+  // Each lyrics box says which language it holds. Box 1 is always the language
+  // the song view shows first (see englishFirst), so the two surfaces agree.
+  function syncLangLabels() {
+    const a = $("ed-lang").value.trim();
+    const b = $("ed-lang2").value.trim();
+    $("ed-label1").textContent = a || "First language";
+    $("ed-label2").textContent = b || "Second language";
+  }
   function fillEditor(f) {
     $("ed-name").value = f.name || "";
     $("ed-tags").value = f.tags || "";
@@ -820,6 +843,7 @@ const APP_NAME = "New Hope Band";
     $("ed-german2").checked = !!f.german2;
     $("ed-text2").value = f.text2 || "";
     $("ed-block2").classList.toggle("hidden", !f.biling);
+    syncLangLabels();
   }
   // ---------- draft autosave: survive an incoming call / tab eviction ----------
   // One draft per session: key "eddraft" holds { uid, t, f:{...field values} }.
@@ -920,7 +944,7 @@ const APP_NAME = "New Hope Band";
       const u = getUserSongs().find((s) => s.id === uid);
       if (u) f = { ...u };
     }
-    fillEditor(f);
+    fillEditor(englishFirst(f));
     $("editor-title").textContent = uid ? "Edit song" : "Add a song";
     $("ed-delete").classList.toggle("hidden", !uid);
     const gr =
@@ -3152,6 +3176,8 @@ const APP_NAME = "New Hope Band";
     $("ed-biling").addEventListener("change", () =>
       $("ed-block2").classList.toggle("hidden", !$("ed-biling").checked),
     );
+    $("ed-lang").addEventListener("input", syncLangLabels);
+    $("ed-lang2").addEventListener("input", syncLangLabels);
     // --- draft autosave: one delegated listener, 600ms debounce, flush on hide
     const edDraftCard = $("editor").querySelector(".editor-card");
     edDraftCard.addEventListener("input", scheduleDraft);
