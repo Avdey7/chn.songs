@@ -730,6 +730,17 @@
         text-align: center;
         padding: 60px 20px;
       }
+      .empty strong {
+        display: block;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 6px;
+      }
+      .empty span {
+        display: block;
+        font-size: 0.9rem;
+      }
 
       /* ---------- song view ---------- */
       .hidden {
@@ -879,6 +890,11 @@
         justify-content: center;
         white-space: nowrap;
         flex: none;
+      }
+      .qbpm.big {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: 0;
       }
       .qbpm.has-bpm {
         color: var(--accent);
@@ -1661,7 +1677,13 @@
       }
       /* title + Save/Delete sit at the top of the editor (not sticky) */
       .editor-head-sticky {
-        padding-bottom: 8px;
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: var(--bg);
+        /* bleed over the card's 16px side padding so nothing shows beside it */
+        margin: 0 -16px;
+        padding: 0 16px 8px;
         border-bottom: 1px solid var(--border);
       }
       .ed-head-actions {
@@ -2381,7 +2403,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 91</span>
+          &middot; <span id="ver">build 92</span>
         </footer>
       </div>
 
@@ -2639,7 +2661,7 @@
         </div>
         <textarea id="ed-text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Verse&#10;C       G&#10;lyrics here&#10;&#10;Section name, then chords above the words and lyrics below.&#10;&#10;Or paste raw text from a worship site and tap “Format pasted text”."></textarea>
 
-        <div class="ed-fields"><input id="ed-tags" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Tags, comma-separated (fast, communion, christmas)" /></div>
+        <div class="ed-fields"><input id="ed-tags" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="Tags: fast, communion, christmas" /></div>
         <label class="ed-check"><input type="checkbox" id="ed-biling" /> Add a 2nd language</label>
         <div id="ed-block2" class="hidden">
           <div class="ed-fields">

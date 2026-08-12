@@ -1665,7 +1665,7 @@ const APP_NAME = "New Hope Band";
     if (!el) return;
     el.textContent = inSet
       ? "Press and hold a song to reorder"
-      : "Swipe a song for favourite & set";
+      : "Swipe a song left or right for set & favourite";
     el.classList.toggle("hidden", !show);
   }
 
@@ -1793,11 +1793,14 @@ const APP_NAME = "New Hope Band";
       let msg;
       if (setView && !getSet().length) {
         msg =
-          "Your set is empty. Open a song and tap <b>+ Set</b> to add it here.";
+          "<strong>No songs in this set yet</strong><span>Open any song and tap <b>Set</b> to add it to your running order.</span>";
       } else if (q) {
-        msg = "No songs match &ldquo;" + escapeHtml(filter) + "&rdquo;";
+        msg =
+          "<strong>Nothing found for &ldquo;" + escapeHtml(filter) +
+          "&rdquo;</strong><span>Try part of a title, or a line from the lyrics.</span>";
       } else {
-        msg = "No songs yet.";
+        msg =
+          "<strong>Your songbook is empty</strong><span>Tap <b>+</b> in the header to add your first song.</span>";
       }
       listEl.innerHTML = '<div class="empty">' + msg + "</div>";
       return;
@@ -2549,11 +2552,10 @@ const APP_NAME = "New Hope Band";
     const bpm = current !== null ? songs[current].bpm : 0;
     el.classList.toggle("tapping", !!listening);
     el.classList.toggle("has-bpm", !!bpm);
-    el.textContent = bpm
-      ? "♩ " + bpm + " BPM"
-      : listening
-        ? "🥁 tap…"
-        : "🥁 Tap tempo";
+    // Idle with no tempo it is just a labelled control; once there IS a number
+    // that number is the whole point, so show it big and nothing else.
+    el.classList.toggle("big", !!bpm);
+    el.textContent = bpm ? String(bpm) : listening ? "…" : "BPM";
   }
   let hdrTaps = [],
     bpmTimer = null;
@@ -3227,6 +3229,29 @@ const APP_NAME = "New Hope Band";
     });
     $("tab-all").addEventListener("click", () => setListMode("all"));
     $("tab-set").addEventListener("click", () => setListMode("set"));
+
+    // Swipe the docked tab bar itself to switch All <-> Set. Deliberately bound
+    // to .list-tabs and NOT to the list container: build 71 removed a
+    // list-container swipe because it fought the per-row favourite/set swipe.
+    // The tab bar carries no row gestures, so there is nothing to collide with.
+    const tabsEl = document.querySelector(".list-tabs");
+    if (tabsEl) {
+      let tx = 0, ty = 0, tActive = false;
+      tabsEl.addEventListener("touchstart", (e) => {
+        if (e.touches.length !== 1) { tActive = false; return; }
+        tx = e.touches[0].clientX; ty = e.touches[0].clientY; tActive = true;
+      }, { passive: true });
+      tabsEl.addEventListener("touchend", (e) => {
+        if (!tActive) return;
+        tActive = false;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - tx, dy = t.clientY - ty;
+        // horizontal-dominant, and far enough to be intentional
+        if (Math.abs(dx) < 45 || Math.abs(dx) <= Math.abs(dy)) return;
+        const next = dx < 0 ? "set" : "all";
+        if (next !== listMode) setListMode(next);
+      }, { passive: true });
+    }
     $("set-clear").addEventListener("click", async () => {
       if (!getSet().length) return;
       if (!(await askConfirm("Clear set", "Remove every song from this set?", { okLabel: "Clear", danger: true }))) return;
