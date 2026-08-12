@@ -1311,9 +1311,19 @@ const APP_NAME = "New Hope Band";
     const url = location.origin + location.pathname + "#set=" + payload;
     $("share-name").textContent = s.name;
     $("share-link").value = url;
-    $("share-qr").src =
-      "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" +
-      encodeURIComponent(url);
+    // Generated locally (vendor/qrcode.min.js) rather than fetched from a QR web
+    // service: the app is offline-first, and a set is most often shared in a
+    // building with poor wifi. It also keeps the set off a third-party server.
+    try {
+      const qr = qrcode(0, "M"); // type 0 = auto-size, M = ~15% error correction
+      qr.addData(url);
+      qr.make();
+      $("share-qr").src =
+        "data:image/svg+xml;charset=utf-8," +
+        encodeURIComponent(qr.createSvgTag({ cellSize: 4, scalable: true }));
+    } catch (e) {
+      $("share-qr").removeAttribute("src"); // link + Copy link still work
+    }
     $("share-native").classList.toggle("hidden", !navigator.share);
     $("share").classList.remove("hidden");
     document.documentElement.classList.add("noscroll");
@@ -1329,19 +1339,24 @@ const APP_NAME = "New Hope Band";
     try {
       const obj = JSON.parse(decodeURIComponent(payload));
       let titles;
+      let missing = 0; // numeric song ids not in this device's catalog
+      let shared = 0; // total song count in the shared set
       if (Array.isArray(obj.v)) {
+        shared = obj.v.length;
         // new compact form: numeric ids resolve to titles via the catalog;
         // plain strings are already titles (device-only songs / old links)
         titles = obj.v
           .map((item) => {
             if (typeof item === "number" || /^\d+$/.test(item)) {
               const sg = songs.find((x) => x.uid === "g:" + item);
-              return sg ? sg.title : null;
+              if (!sg) { missing++; return null; } // not in this device's catalog
+              return sg.title;
             }
             return item;
           })
           .filter(Boolean);
       } else if (Array.isArray(obj.s)) {
+        shared = obj.s.length;
         titles = obj.s; // legacy: array of titles
       } else {
         return null;
@@ -1359,14 +1374,14 @@ const APP_NAME = "New Hope Band";
       if (existing) {
         activeSetId = existing.id;
         store.set("activeSet", activeSetId);
-        return { set: existing, dup: true };
+        return { set: existing, dup: true, shared, missing };
       }
       const s = { id: uid(), name, songs: titles };
       sets.push(s);
       saveSets(sets);
       activeSetId = s.id;
       store.set("activeSet", activeSetId);
-      return { set: s, dup: false };
+      return { set: s, dup: false, shared, missing };
     } catch {
       return null;
     }
@@ -1382,10 +1397,17 @@ const APP_NAME = "New Hope Band";
       if (r.dup) {
         await askNotice("Already imported", 'You already have "' + s.name + '" - switched to it.');
       } else {
-        const have = s.songs.filter((t) => songs.some((x) => x.title === t)).length;
+        // count titles this device cannot resolve too (device-only / legacy links),
+        // on top of the ids importFromText already could not resolve
+        const unknown =
+          s.songs.filter((t) => !songs.some((x) => x.title === t)).length + (r.missing || 0);
+        const total = r.shared || s.songs.length;
         await askNotice(
           "Set imported",
-          'Imported "' + s.name + '" - ' + have + " of " + s.songs.length + " songs found in this app.",
+          unknown
+            ? 'Imported "' + s.name + '" with ' + (total - unknown) + " of " + total +
+              " songs. " + unknown + " are not in your songbook yet - reconnect and reopen the app to sync, then import again."
+            : 'Imported "' + s.name + '" - all ' + total + " songs found.",
         );
       }
     } else {
