@@ -1086,6 +1086,7 @@ const APP_NAME = "New Hope Band";
   function ask(opts) {
     return new Promise((resolve) => {
       const o = opts || {};
+      const prevFocus = document.activeElement;
       const box = $("ask"), inp = $("ask-input"), ok = $("ask-ok"), cancel = $("ask-cancel"), x = $("ask-close");
       $("ask-title").textContent = o.title || "";
       $("ask-msg").textContent = o.message || "";
@@ -1096,19 +1097,32 @@ const APP_NAME = "New Hope Band";
       ok.classList.toggle("danger", !!o.danger);
       cancel.classList.toggle("hidden", !!o.notice);
       box.classList.remove("hidden");
+      document.documentElement.classList.add("noscroll");
       const done = (val) => {
         box.classList.add("hidden");
+        document.documentElement.classList.remove("noscroll");
         ok.removeEventListener("click", onOk);
         cancel.removeEventListener("click", onCancel);
         x.removeEventListener("click", onCancel);
         document.removeEventListener("keydown", onKey);
+        // hand focus back to whatever opened the dialog
+        if (prevFocus && typeof prevFocus.focus === "function") prevFocus.focus();
         resolve(val);
       };
       const onOk = () => done(o.input ? inp.value : true);
       const onCancel = () => done(o.input ? null : false);
       const onKey = (e) => {
-        if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-        else if (e.key === "Enter" && (document.activeElement === inp || document.activeElement === ok)) { e.preventDefault(); onOk(); }
+        if (e.key === "Escape") { e.preventDefault(); onCancel(); return; }
+        if (e.key === "Enter" && (document.activeElement === inp || document.activeElement === ok)) { e.preventDefault(); onOk(); return; }
+        if (e.key !== "Tab") return;
+        // aria-modal promises the rest of the page is inert; keep Tab inside
+        const f = [x, inp, cancel, ok].filter(
+          (el) => el && !el.classList.contains("hidden") && el.getBoundingClientRect().width > 0,
+        );
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       };
       ok.addEventListener("click", onOk);
       cancel.addEventListener("click", onCancel);
