@@ -246,8 +246,8 @@
            landscape the notch/camera cutout eats the LEFT or RIGHT edge, not the
            top. Without these insets the first chord of every line can sit under
            the cutout on an iPhone. */
-        padding: 0 calc(18px + env(safe-area-inset-right, 0px)) 0
-          calc(18px + env(safe-area-inset-left, 0px));
+        padding: 0 calc(var(--sp-4) + env(safe-area-inset-right, 0px)) 0
+          calc(var(--sp-4) + env(safe-area-inset-left, 0px));
       }
 
       /* Form controls do NOT inherit font-family from body -- without this the
@@ -438,7 +438,7 @@
            single-language row -- and the absolutely-positioned swipe shades
            inherited that, so the reveal panels were visibly different sizes too. */
         min-height: 72px;
-        padding: 7px 6px;
+        padding: 7px 6px; /* NOT arbitrary: calculated with min-height 72px so every row lands on exactly 72px (build 67). Do not fold onto the --sp scale. */
         border: none;
         background: transparent;
         border-bottom: 1px solid var(--border);
@@ -725,7 +725,7 @@
         font-family: "Inter", sans-serif;
         font-weight: 600;
         font-size: 0.9rem;
-        padding: 7px 16px;
+        padding: var(--sp-2) var(--sp-4);
         border-radius: var(--r-pill);
         color: var(--muted);
         background: var(--surface);
@@ -779,7 +779,7 @@
         align-items: center;
         gap: 6px;
         height: 44px;
-        padding: 0 18px 0 13px;
+        padding: 0 var(--sp-4) 0 var(--sp-3);
         border-radius: var(--r-pill);
         border: 1px solid var(--border);
         background: var(--surface);
@@ -1236,7 +1236,7 @@
         min-height: 44px;
         display: inline-flex;
         align-items: center;
-        padding: 5px 14px;
+        padding: var(--sp-1) 14px;
         border-radius: var(--r-pill);
         white-space: nowrap;
         color: var(--muted);
@@ -1413,7 +1413,7 @@
           margin: 0;
           justify-content: center;
           gap: 10px;
-          padding: 9px 16px calc(9px + env(safe-area-inset-bottom, 0));
+          padding: var(--sp-2) var(--sp-4) calc(var(--sp-2) + env(safe-area-inset-bottom, 0));
           background: var(--surface);
           background: var(--glass-bg);
           -webkit-backdrop-filter: var(--glass-blur);
@@ -1426,7 +1426,7 @@
           justify-content: center;
           /* primary navigation -- was 40px, under the 44px minimum */
           min-height: 46px;
-          padding: 11px 16px;
+          padding: var(--sp-3) var(--sp-4);
         }
         /* keep the last rows + footer clear of the docked bar */
         #list-view .appfoot {
@@ -1443,7 +1443,7 @@
         font-family: "Inter", sans-serif;
         font-weight: 600;
         font-size: 0.85rem;
-        padding: 7px 14px;
+        padding: var(--sp-2) 14px;
         border-radius: var(--r-pill);
         color: var(--muted);
         background: var(--surface);
@@ -1464,7 +1464,7 @@
         font-weight: 700;
         min-width: 18px;
         height: 18px;
-        padding: 0 5px;
+        padding: 0 var(--sp-1);
         border-radius: var(--r-pill);
         background: var(--surface-2);
         color: var(--text);
@@ -1531,7 +1531,7 @@
         background-position: right 14px center;
         border: 1px solid var(--border);
         border-radius: var(--r-pill);
-        padding: 11px 38px 11px 16px;
+        padding: var(--sp-3) 38px var(--sp-3) var(--sp-4);
         outline: none;
         cursor: pointer;
         appearance: none;
@@ -1806,7 +1806,7 @@
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--r-md);
-        padding: 11px 12px;
+        padding: var(--sp-3) var(--sp-3);
         outline: none;
       }
       .ed-check {
@@ -1887,7 +1887,7 @@
       .ed-mini {
         flex: none;
         min-height: 44px;
-        padding: 7px 13px;
+        padding: var(--sp-2) var(--sp-3);
         border-radius: var(--r-pill);
         border: 1px solid var(--accent-dim);
         background: var(--accent-soft);
@@ -1919,7 +1919,7 @@
         font-weight: 600;
         font-size: 0.95rem;
         min-height: 44px;
-        padding: 11px 20px;
+        padding: var(--sp-3) 20px;
         border-radius: var(--r-pill);
         border: 1px solid var(--accent);
         background: var(--accent);
@@ -2280,7 +2280,7 @@
       .cp-nodia {
         color: var(--muted);
         font-size: 0.85rem;
-        padding: 18px 4px;
+        padding: var(--sp-4) var(--sp-1);
       }
       #cp-editrow {
         display: flex;
@@ -2449,7 +2449,7 @@
         <footer class="appfoot">
           New Hope Band &middot; by Avdey Axonov &middot;
           <a href="LICENSE">MIT&nbsp;License</a>
-          &middot; <span id="ver">build 101</span>
+          &middot; <span id="ver">build 102</span>
         </footer>
       </div>
 
