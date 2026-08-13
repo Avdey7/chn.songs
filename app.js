@@ -830,6 +830,10 @@ const APP_NAME = "New Hope Band";
     $("ed-label2").textContent = b || "Second language";
   }
   function fillEditor(f) {
+    // Normalise here, not at the call sites: build 98 fixed one caller and a
+    // second (restorePrev) silently reintroduced the bug. Box 1 must always be
+    // the language the song view shows first, whoever is filling the editor.
+    f = englishFirst(f || {});
     $("ed-name").value = f.name || "";
     $("ed-tags").value = f.tags || "";
     $("ed-bpm").value = f.bpm || "";
@@ -944,7 +948,7 @@ const APP_NAME = "New Hope Band";
       const u = getUserSongs().find((s) => s.id === uid);
       if (u) f = { ...u };
     }
-    fillEditor(englishFirst(f));
+    fillEditor(f);
     $("editor-title").textContent = uid ? "Edit song" : "Add a song";
     $("ed-delete").classList.toggle("hidden", !uid);
     const gr =
